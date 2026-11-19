@@ -1,8 +1,18 @@
-// Talking to our server (server/main.py). The address comes from mobile/.env.local: EXPO_PUBLIC_API_URL.
-// Every request carries the signed-in user's token; an expired token is refreshed once, automatically.
+// Talking to our server (server/main.py). Every request carries the signed-in user's token; an expired token is
+// refreshed once, automatically.
+// The address: EXPO_PUBLIC_API_URL (mobile/.env.local) if set; otherwise, while testing, the same PC that runs
+// Expo, port 8000 (the server runs next to Expo on the owner's PC).
+import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 
-export const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? '').replace(/\/$/, '');
+function serverAddress(): string {
+  const fromEnv = process.env.EXPO_PUBLIC_API_URL;
+  if (fromEnv) return fromEnv.replace(/\/$/, '');
+  const host = Constants.expoConfig?.hostUri?.split(':')[0]; // e.g. "10.0.0.79" from "10.0.0.79:8081"
+  return __DEV__ && host ? `http://${host}:8000` : '';
+}
+
+export const API_URL = serverAddress();
 
 export type Session = { access_token: string; refresh_token: string; expires_at?: number };
 

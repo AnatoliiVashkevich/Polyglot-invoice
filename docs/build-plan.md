@@ -36,7 +36,7 @@ A step is done only when its **"Test on iPhone"** works for the owner. Then mark
 - Note: on a phone the bars are too small to tap one by one, so tapping a day opens its list and a row opens the job
   (the job card comes in step 5). Tell the owner if this differs from the decisions.
 
-### [ ] 2. Server and database
+### [x] 2. Server and database  — tested on the iPhone 2026-11-19
 - New schema; FastAPI endpoints for clients, items (task / estimate / invoice), expenses, settings; tests.
 - Run the server on the PC, reachable from the phone through a tunnel (later: hosting).
 - Sign in with email and password (Supabase). Sign in with Apple comes in step 10 (it needs a development build).
