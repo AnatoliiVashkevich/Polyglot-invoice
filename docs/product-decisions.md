@@ -246,8 +246,11 @@ the website address (polyglotinvoice.com) and a USPTO trademark search.
 - **Prices travel along the job:** a task scheduled from an estimate keeps the estimate's lines and total (shown on the
   task card as "Price (from the estimate)"). "Job done → Create invoice" then fills everything in and opens Review
   right away; the user can still change anything.
-- **"Choose more contacts"** became **"Pick from all contacts"**: it opens the iPhone's own contact list (no extra
-  permission), and tapping a person picks them.
+- **"Choose more contacts"** became **"Pick from all contacts"**: it opens the iPhone's own contact list, and tapping a
+  person picks them. If iOS hides that person (only some contacts shared), a message explains it and opens Settings →
+  Contacts → Full Access; the user can also just type the name.
+- **The first question is "Choose the customer"** (not "Who is it for?", which could mean "for me").
+- **No flash of the first question** when a task / invoice is made from another job: nothing shows until it's loaded.
 
 ## 13. Database (decided 2026-11-19)
 
@@ -264,3 +267,5 @@ the website address (polyglotinvoice.com) and a USPTO trademark search.
    discuss (what happens to the next one when one is done, editing one or all, reminders, invoices for each).
 3. **Keep closed jobs as notes / history:** done tasks, sent estimates and paid invoices stay visible as a record.
 4. **Notes:** a task without a customer may really be a note; maybe add plain notes.
+5. **Charging before the visit (prepayment / deposit):** today an invoice can already be made from an estimate before
+   the job ("Make invoice"). Still to discuss: a deposit (part now, the rest after the job) and how it shows.

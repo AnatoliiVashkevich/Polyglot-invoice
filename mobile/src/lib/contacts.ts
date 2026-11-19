@@ -1,7 +1,6 @@
 // The iPhone's contacts, for step 1 "Customer". Permission is asked only the first time the user searches
 // (App Store rule: ask when needed, with a reason). If refused, only clients and "New client" are shown.
 import { Contact, ContactField, getPermissionsAsync, requestPermissionsAsync } from 'expo-contacts';
-import { presentContactPickerAsync } from 'expo-contacts/legacy';
 
 export type PhoneContact = { id: string; name: string; phone: string; email: string; address: string };
 
@@ -21,21 +20,30 @@ export async function contactsAccess(): Promise<ContactsAccess> {
   }
 }
 
-/** The iPhone's own contact list (all contacts, no extra permission needed). Tap one → it's picked. null if cancelled. */
-export async function pickPhoneContact(): Promise<PhoneContact | null> {
+/** The iPhone's own contact list: tap a person → their details. 'cancelled' if closed; 'unreadable' when iOS
+ *  doesn't let the app read that person (the user shared only some contacts) — then Settings → Full Access fixes it. */
+export async function pickPhoneContact(): Promise<PhoneContact | 'cancelled' | 'unreadable'> {
+  let picked: Contact | null;
   try {
-    const c = await presentContactPickerAsync();
-    if (!c) return null;
+    picked = await Contact.presentPicker();
+  } catch {
+    return 'unreadable';
+  }
+  if (!picked) return 'cancelled';
+  try {
+    const c = await picked.getDetails([ContactField.FULL_NAME, ContactField.PHONES, ContactField.EMAILS, ContactField.ADDRESSES]);
+    const name = (c.fullName ?? '').trim();
+    if (!name) return 'unreadable';
     const a = c.addresses?.[0];
     return {
-      id: c.id,
-      name: (c.name ?? '').trim(),
-      phone: c.phoneNumbers?.[0]?.number ?? '',
-      email: c.emails?.[0]?.email ?? '',
-      address: a ? [a.street, a.city, [a.region, a.postalCode].filter(Boolean).join(' ')].filter(Boolean).join(', ') : '',
+      id: picked.id,
+      name,
+      phone: c.phones?.[0]?.number ?? '',
+      email: c.emails?.[0]?.address ?? '',
+      address: a ? [a.street, a.city, [a.state ?? a.region, a.postcode].filter(Boolean).join(' ')].filter(Boolean).join(', ') : '',
     };
   } catch {
-    return null;
+    return 'unreadable';
   }
 }
 

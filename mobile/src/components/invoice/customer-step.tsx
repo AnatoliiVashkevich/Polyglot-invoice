@@ -4,7 +4,7 @@
 // Once allowed, matching contacts simply appear while typing. Refused → a row that opens Settings;
 // only some contacts shared (iOS 18) → a row to choose more.
 import { useEffect, useMemo, useState } from 'react';
-import { Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { t } from '@/i18n';
 import type { Client, ClientDraft } from '@/lib/clients';
@@ -59,7 +59,16 @@ export function CustomerStep({
   };
   const fromAllContacts = async () => {
     const c = await pickPhoneContact();
-    if (c?.name) pickContact(c);
+    if (c === 'cancelled') return;
+    if (c !== 'unreadable') return pickContact(c);
+    Alert.alert(
+      t('Allow all contacts'),
+      t('You shared only some contacts with the app, so iPhone hides the others. To see all your customers: Settings → Contacts → Full Access. Or type the name and add the details by hand.'),
+      [
+        { text: t('Not now'), style: 'cancel' },
+        { text: t('Open Settings'), onPress: () => Linking.openSettings() },
+      ],
+    );
   };
 
   const q = query.trim();
@@ -118,7 +127,7 @@ export function CustomerStep({
       {access === 'undetermined' &&
         row('ask', t('Search your phone contacts'), t('To find your customers faster.'), askContacts, '📇')}
       {access === 'limited' &&
-        row('more', t('Pick from all contacts'), t('Opens your iPhone contact list.'), fromAllContacts, '📇')}
+        row('more', t('Pick from all contacts'), t('Some contacts are hidden. Tap to choose from all of them.'), fromAllContacts, '📇')}
       {access === 'denied' &&
         row('settings', t('Allow contacts in Settings'), t('To find your customers faster.'), () => Linking.openSettings(), '📇')}
 

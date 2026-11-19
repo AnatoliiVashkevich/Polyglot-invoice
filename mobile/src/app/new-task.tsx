@@ -138,7 +138,7 @@ export default function NewTaskScreen() {
     }
   };
 
-  const title = [t('Who is it for?'), t('What needs to be done?'), t('When?'), t('Remind you?')][step];
+  const title = [t('Choose the customer'), t('What needs to be done?'), t('When?'), t('Remind you?')][step];
   const subtitle = [
     t('Or tap Skip at the bottom if it is not for a customer.'),
     client ? client.name : '',
@@ -224,8 +224,8 @@ export default function NewTaskScreen() {
         <View style={[styles.progressFill, { backgroundColor: colors.accent, width: `${((step + 1) / STEPS) * 100}%` }]} />
       </View>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
-        <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-        {!!subtitle && <Text style={[styles.subtitle, { color: colors.muted }]}>{subtitle}</Text>}
+        {!!clients && <Text style={[styles.title, { color: colors.text }]}>{title}</Text>}
+        {!!clients && !!subtitle && <Text style={[styles.subtitle, { color: colors.muted }]}>{subtitle}</Text>}
         <View style={{ marginTop: 16 }}>{body()}</View>
       </ScrollView>
       <View style={[styles.bottom, { paddingBottom: Math.max(insets.bottom, 12), borderTopColor: colors.line }]}>

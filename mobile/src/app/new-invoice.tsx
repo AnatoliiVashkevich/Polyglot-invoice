@@ -307,7 +307,7 @@ export default function NewInvoiceScreen() {
 
   // ----- screens -----
   const title = [
-    t('Who is it for?'),
+    t('Choose the customer'),
     client?.id ? t('Check {name}’s info', { name: firstName(client.name) }) : t('New client'),
     isEstimate ? t('What work will you do?') : t('What did you do?'),
     t('Any expenses?'),
@@ -627,8 +627,9 @@ export default function NewInvoiceScreen() {
       </View>
 
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
-        <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-        {!!subtitle && <Text style={[styles.subtitle, { color: colors.muted }]}>{subtitle}</Text>}
+        {/* nothing until loaded: an invoice made from a task or an estimate opens on a later step */}
+        {!!clients && !!settings && <Text style={[styles.title, { color: colors.text }]}>{title}</Text>}
+        {!!clients && !!settings && !!subtitle && <Text style={[styles.subtitle, { color: colors.muted }]}>{subtitle}</Text>}
         <View style={{ marginTop: 16 }}>{body()}</View>
       </ScrollView>
 
