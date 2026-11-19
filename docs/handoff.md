@@ -15,7 +15,7 @@ Last updated: 2026-11-19. Update this file at the end of every session.
 - **Next: Step 5, the job card and the stages** (estimates, tasks, reminders). Ask the owner before starting it.
 
 ## How the server runs (testing)
-- `cd C:\polyglot-invoice\server` then `venv\Scripts\python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload --reload-exclude venv --reload-exclude tests`.
+- `cd C:\polyglot-invoice\server` then `venv\Scripts\python -m uvicorn main:app --host 0.0.0.0 --port 8000` (no --reload: on Windows it gets stuck; restart the server after changing server code).
   Keys are in `server/.env` (copied from crm-solo, git-ignored). Tests: `venv\Scripts\python -m pytest`.
 - The app finds the server automatically: the PC that runs Expo, port 8000 (`mobile/src/lib/api.ts`).
   `EXPO_PUBLIC_API_URL` in `mobile/.env.local` overrides it (Expo must be restarted to read it).

@@ -12,6 +12,7 @@ export type ServerItem = {
   client_name: string;
   date: string;
   time: string;
+  reminder_minutes: number | null;
   address: string;
   title: string;
   number: string;
@@ -24,6 +25,7 @@ export type ServerItem = {
   due_date: string | null;
   paid_date: string | null;
   payment_method: string;
+  from_item_id: string | null;
 };
 
 export const PAYMENT_METHODS = ['Zelle', 'Cash', 'Check', 'Venmo', 'Card', 'Other'] as const;
@@ -56,6 +58,8 @@ export const patchItem = (id: string, body: Record<string, unknown>) =>
 
 export const markPaid = (id: string, method: string, date: string) =>
   patchItem(id, { status: 'paid', payment_method: method, paid_date: date });
+
+export const deleteItem = (id: string) => api<void>(`/api/items/${id}`, { method: 'DELETE' });
 
 /** Undo payment: back to Requested (it was sent before it was paid). The server clears the date and method. */
 export const undoPayment = (id: string) => patchItem(id, { status: 'requested' });

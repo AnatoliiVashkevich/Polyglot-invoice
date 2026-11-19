@@ -14,6 +14,7 @@ import { MarkPaidSheet } from '@/components/mark-paid-sheet';
 import { fetchSettings } from '@/lib/clients';
 import { addMonths, formatDay, formatMonth, monthGrid, monthOf, todayIso, weekdayNames } from '@/lib/dates';
 import { fetchItems, getItem, sendInvoice } from '@/lib/items';
+import { syncNotifications } from '@/lib/notifications';
 import { locale, t } from '@/i18n';
 import { kindColors, radius, useColors } from '@/theme';
 import type { Filter, Item } from '@/types';
@@ -55,6 +56,7 @@ export default function CalendarScreen() {
       const fresh = await fetchItems(start, end);
       setItems((old) => [...old.filter((it) => it.date < start || it.date > end), ...fresh]);
       setLoadError('');
+      syncNotifications(); // keeps reminders right after any change made elsewhere
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : 'Could not load.');
     }
@@ -87,8 +89,7 @@ export default function CalendarScreen() {
   }, []);
 
   const openItem = useCallback((item: Item) => {
-    if (item.kind === 'invoice') router.push({ pathname: '/invoice/[id]', params: { id: item.id } });
-    else Alert.alert(item.clientName || t('No customer'), t('The job card is built in a later step.'));
+    router.push({ pathname: '/job/[id]', params: { id: item.id } });
   }, []);
 
   // swipe actions on invoices: Send (Created / Requested) and Mark Paid (Requested)

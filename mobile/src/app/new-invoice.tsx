@@ -1,6 +1,9 @@
 // NEW INVOICE: a questionnaire, one question per screen (product-decisions.md §6):
 //   1 Customer · 2 Check info · 3 Work + prices · 4 Expenses · 5 Date · 6 Review → Create
 // Free plan: plain fields. (Voice fills these same steps in build step 7.)
+// ESTIMATE: /new-invoice?kind=estimate — the same screens without Expenses and Due (EST-0001…).
+// FROM: /new-invoice?from=<task or estimate id> — "Job done → Create invoice" / "Make invoice", filled in: a task
+//   gives the customer and the work (prices still to add, starts at Work); an estimate gives everything (Review).
 // EDIT: /new-invoice?id=… opens the same screens filled in, on Review ("Tap anything to change it"); the
 // Expenses step is skipped (expenses were saved when the invoice was created; their lines stay as lines).
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -57,7 +60,11 @@ const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? '';
 export default function NewInvoiceScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { id: editId } = useLocalSearchParams<{ id?: string }>();
+  const params = useLocalSearchParams<{ id?: string; kind?: string; from?: string }>();
+  const editId = params.id;
+  const fromId = params.from;
+  const [kind, setKind] = useState<'invoice' | 'estimate'>(params.kind === 'estimate' ? 'estimate' : 'invoice');
+  const isEstimate = kind === 'estimate';
   const [editing, setEditing] = useState<ServerItem | null>(null); // the invoice being edited
 
   // loaded once
@@ -81,13 +88,34 @@ export default function NewInvoiceScreen() {
   const [editBusiness, setEditBusiness] = useState(false);
 
   useEffect(() => {
-    Promise.all([fetchClients(), fetchSettings(), editId ? getItem(editId) : fetchNextNumber('invoice')])
-      .then(([c, s, third]) => {
+    const startKind = params.kind === 'estimate' ? 'estimate' : 'invoice';
+    Promise.all([
+      fetchClients(),
+      fetchSettings(),
+      editId ? getItem(editId) : fetchNextNumber(startKind),
+      fromId ? getItem(fromId) : Promise.resolve(null),
+    ])
+      .then(([c, s, third, source]) => {
         setClients(c);
         setSettings(s);
         if (typeof third === 'string') {
           setDueDays(s.due_days);
           setNumber(third);
+          if (!source) return;
+          // made from a task or an estimate: fill in what it already knows
+          const cl = c.find((x) => x.id === source.client_id);
+          if (cl) {
+            setClient({ id: cl.id, name: cl.name, phone: cl.phone, email: cl.email, address: cl.address, preferred_language: cl.preferred_language });
+            setOriginal(cl);
+          }
+          if (source.kind === 'estimate' && source.lines.length) {
+            setWork(source.lines.map((l) => ({ key: newKey(), text: l.text, qty: String(l.qty ?? 1), price: String(l.price ?? ''), kind: l.kind ?? 'work' })));
+            setTaxOn(Number(source.tax_rate) > 0 || Number(s.tax_rate) === 0);
+            setStep(cl ? 5 : 0);
+          } else {
+            setWork([{ ...emptyWork(), text: source.title }]); // a task: the work is known, the price is not
+            setStep(cl ? 2 : 0);
+          }
           return;
         }
         // edit: fill every answer from the invoice
@@ -107,11 +135,13 @@ export default function NewInvoiceScreen() {
         setDueDays(it.due_date ? Math.max(0, daysBetween(it.date, it.due_date)) : 0);
         setNumber(it.number);
         setTaxOn(Number(it.tax_rate) > 0);
+        if (it.kind === 'estimate') setKind('estimate');
         setEditing(it);
         setStep(5);
       })
       .catch((e) => setLoadError(e instanceof Error ? e.message : 'Could not load.'));
-  }, [editId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loaded once for the screen's params
+  }, [editId, fromId]);
 
   // ----- the lines as numbers -----
   const workLines: Line[] = useMemo(
@@ -158,7 +188,7 @@ export default function NewInvoiceScreen() {
   const back = () => {
     if (step === 0 || (editing && step === 5)) return close();
     if (step === 2 && !client) return go(0);
-    if (editing && step === 4) return go(2); // no Expenses step when editing
+    if ((editing || isEstimate) && step === 4) return go(2); // no Expenses step when editing or for estimates
     go(step - 1);
   };
 
@@ -189,6 +219,7 @@ export default function NewInvoiceScreen() {
     if (step === 3 && expenseRows.some((e) => Number.isNaN(e.value) || e.value < 0))
       return setError(t('Please check the amounts: numbers only, like 64.50.'));
     if (editing && (step === 2 || step === 4)) return go(5); // editing: back to Review
+    if (isEstimate && step === 2) return go(4); // estimates: no Expenses step
     go(step + 1);
   };
 
@@ -200,21 +231,22 @@ export default function NewInvoiceScreen() {
       const created = await api<ServerItem>('/api/items', {
         method: 'POST',
         body: {
-          kind: 'invoice',
+          kind,
           client_id: client.id,
           date,
-          due_date: dueDate(date, dueDays),
+          ...(isEstimate ? {} : { due_date: dueDate(date, dueDays) }),
+          ...(fromId ? { from_item_id: fromId } : {}),
           number: number.trim(),
           title: workLines.map((l) => l.text).join(', ').slice(0, 200),
           address: client.address,
           lines: workLines,
-          expenses: expenseRows.map((e) => ({ description: e.description.trim(), amount: e.value, add_to_invoice: e.addToInvoice })),
+          expenses: isEstimate ? [] : expenseRows.map((e) => ({ description: e.description.trim(), amount: e.value, add_to_invoice: e.addToInvoice })),
           tax_rate: taxOn ? taxRate : 0,
         },
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       // "After Create: the PDF opens with a big Send button"
-      router.replace({ pathname: '/invoice/[id]', params: { id: created.id } });
+      router.replace({ pathname: '/job/[id]', params: { id: created.id } });
     } catch (e) {
       if (e instanceof ApiError && e.status === 409 && typeof e.detail?.next === 'string') {
         setNumber(e.detail.next);
@@ -236,7 +268,7 @@ export default function NewInvoiceScreen() {
       const updated = await patchItem(editing.id, {
         client_id: client.id,
         date,
-        due_date: dueDate(date, dueDays),
+        ...(isEstimate ? {} : { due_date: dueDate(date, dueDays) }),
         ...(number.trim() !== editing.number ? { number: number.trim() } : {}),
         title: workLines.filter((l) => l.kind === 'work').map((l) => l.text).join(', ').slice(0, 200),
         address: client.address,
@@ -245,9 +277,9 @@ export default function NewInvoiceScreen() {
         tax_applies_to: taxAppliesTo,
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      if (updated.status !== 'requested') return router.back();
-      // already sent once: offer to send the corrected invoice (product-decisions.md §6)
-      Alert.alert(t('Send the updated invoice to the customer?'), '', [
+      if (updated.status !== 'requested' && updated.status !== 'sent') return router.back();
+      // already sent once: offer to send the corrected one (product-decisions.md §6)
+      Alert.alert(isEstimate ? t('Send the updated estimate to the customer?') : t('Send the updated invoice to the customer?'), '', [
         { text: t('Not now'), style: 'cancel', onPress: () => router.back() },
         {
           text: t('Send'),
@@ -278,7 +310,7 @@ export default function NewInvoiceScreen() {
     client?.id ? t('Check {name}’s info', { name: firstName(client.name) }) : t('New client'),
     t('What did you do?'),
     t('Any expenses?'),
-    t('Date'),
+    isEstimate ? t('Date of the estimate') : t('Date'),
     t('Review'),
   ][step];
   const subtitle = [
@@ -443,12 +475,16 @@ export default function NewInvoiceScreen() {
                 onValueChange={(_, d) => setDate(isoDate(d))}
               />
             </View>
+            {!isEstimate && (
+              <>
             <Text style={[styles.label, { color: colors.muted }]}>{t('Due')}</Text>
             <View style={styles.chips}>
               {DUE_CHOICES.map((c) => (
                 <Chip key={c.days} label={t(c.label)} active={dueDays === c.days} onPress={() => setDueDays(c.days)} />
               ))}
             </View>
+              </>
+            )}
           </View>
         );
       default:
@@ -521,7 +557,7 @@ export default function NewInvoiceScreen() {
             </View>
 
             <View style={[styles.numberRow, { backgroundColor: colors.card }]}>
-              <Text style={[styles.small, { color: colors.muted }]}>{t('Invoice number')}</Text>
+              <Text style={[styles.small, { color: colors.muted }]}>{isEstimate ? t('Estimate number') : t('Invoice number')}</Text>
               <TextInput
                 value={number}
                 onChangeText={setNumber}
@@ -533,7 +569,8 @@ export default function NewInvoiceScreen() {
 
             <ReviewCard onPress={() => go(4)}>
               <Text style={[styles.reviewText, { color: colors.text }]}>
-                {formatDay(date, 'en-US')} · {dueDays === 0 ? t('Due: Now') : t('Due: {date}', { date: formatDay(dueDate(date, dueDays), 'en-US') })}
+                {formatDay(date, 'en-US')}
+                {isEstimate ? '' : ` · ${dueDays === 0 ? t('Due: Now') : t('Due: {date}', { date: formatDay(dueDate(date, dueDays), 'en-US') })}`}
               </Text>
             </ReviewCard>
 
@@ -553,7 +590,7 @@ export default function NewInvoiceScreen() {
       editing ? (
         <BigButton title={t('Save changes')} onPress={save} busy={busy} />
       ) : (
-        <BigButton title={t('Create invoice')} onPress={create} busy={busy} />
+        <BigButton title={isEstimate ? t('Create estimate') : t('Create invoice')} onPress={create} busy={busy} />
       )
     ) : step === 3 && expenseRows.length === 0 ? (
       <BigButton kind="quiet" title={t('Skip')} onPress={next} />
@@ -568,7 +605,11 @@ export default function NewInvoiceScreen() {
           <Text style={[styles.topBtn, { color: colors.accent }]}>{step === 0 || (editing && step === 5) ? t('Cancel') : `‹ ${t('Back')}`}</Text>
         </Pressable>
         <Text style={[styles.topTitle, { color: colors.muted }]}>
-          {editing ? t('Edit invoice') : `${t('New invoice')} · ${step + 1}/${STEPS.length}`}
+          {editing
+            ? isEstimate
+              ? t('Edit estimate')
+              : t('Edit invoice')
+            : `${isEstimate ? t('New estimate') : t('New invoice')} · ${step + 1}/${STEPS.length}`}
         </Text>
         <View style={{ width: 64 }} />
       </View>

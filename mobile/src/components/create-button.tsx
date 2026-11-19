@@ -21,6 +21,8 @@ export function CreateButton({ onCreate }: { onCreate?: (kind: CreateKind) => vo
     setOpen(false);
     if (onCreate) onCreate(kind);
     else if (kind === 'invoice') router.push('/new-invoice');
+    else if (kind === 'estimate') router.push({ pathname: '/new-invoice', params: { kind: 'estimate' } });
+    else if (kind === 'task') router.push('/new-task');
     else Alert.alert(t('Coming soon'), t('This form is built in a later step.'));
   };
 

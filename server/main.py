@@ -315,6 +315,10 @@ def create_item(body: ItemIn, uid: str = Depends(auth.current_user)):
             db.insert_row("expenses", {"date": data["date"], "description": e.description.strip(), "amount": e.amount,
                                        "category": "Materials", "client_id": data.get("client_id"),
                                        "item_id": row["id"] if e.add_to_invoice and kind != "task" else None}, uid)
+    # "Job done -> Create invoice": the task it was made from is done now
+    source = db.get_row("items", data["from_item_id"], uid) if data.get("from_item_id") else None
+    if source and source["kind"] == "task" and kind != "task" and source["status"] != "done":
+        db.update_row("items", source["id"], {"status": "done"}, uid)
     return _with_client_names([row], uid)[0]
 
 
@@ -372,7 +376,8 @@ def item_pdf(item_id: str, lang: Lang | None = None, uid: str = Depends(auth.cur
 
 @app.delete("/api/items/{item_id}", status_code=204)
 def delete_item(item_id: str, uid: str = Depends(auth.current_user)):
-    _item_or_404(item_id, uid)
+    if _item_or_404(item_id, uid)["status"] == "paid":
+        raise HTTPException(409, "A paid invoice is locked. Undo the payment to delete it.")
     db.delete_row("items", item_id, uid)
 
 

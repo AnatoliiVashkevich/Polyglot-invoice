@@ -29,10 +29,11 @@ export function BigButton({
   onPress: () => void;
   busy?: boolean;
   disabled?: boolean;
-  kind?: 'main' | 'quiet';
+  kind?: 'main' | 'second' | 'quiet';
 }) {
   const colors = useColors();
   const main = kind === 'main';
+  const second = kind === 'second';
   return (
     <Pressable
       onPress={onPress}
@@ -43,12 +44,14 @@ export function BigButton({
         styles.big,
         main
           ? { backgroundColor: colors.accent, opacity: disabled ? 0.4 : pressed || busy ? 0.85 : 1 }
-          : { backgroundColor: pressed ? colors.line : 'transparent' },
+          : second
+            ? { borderWidth: 2, borderColor: colors.accent, backgroundColor: pressed ? colors.line : colors.card }
+            : { backgroundColor: pressed ? colors.line : 'transparent' },
       ]}>
       {busy ? (
         <ActivityIndicator color={main ? colors.onAccent : colors.text} />
       ) : (
-        <Text style={[styles.bigText, { color: main ? colors.onAccent : colors.muted }]}>{title}</Text>
+        <Text style={[styles.bigText, { color: main ? colors.onAccent : second ? colors.accent : colors.muted }]}>{title}</Text>
       )}
     </Pressable>
   );
