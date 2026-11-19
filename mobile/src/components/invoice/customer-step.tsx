@@ -137,11 +137,11 @@ export function CustomerStep({
       {!!q && (access === 'all' || access === 'limited') && fromPhone.length === 0 && (
         <Text style={[styles.hint, { color: colors.muted }]}>{t('No phone contacts match “{q}”.', { q })}</Text>
       )}
-      {!!q && access === 'undetermined' &&
+      {access === 'undetermined' &&
         row('ask', t('Search your phone contacts'), t('To find your customers faster.'), askContacts, '📇')}
-      {!!q && access === 'limited' &&
+      {access === 'limited' &&
         row('more', t('Choose more contacts'), t('You shared only some contacts with the app.'), moreContacts, '📇')}
-      {!!q && access === 'denied' &&
+      {access === 'denied' &&
         row('settings', t('Allow contacts in Settings'), t('To find your customers faster.'), () => Linking.openSettings(), '📇')}
       {!!q && row('new', t('New client “{name}”', { name: q }), '', pickNew, '＋')}
     </View>
