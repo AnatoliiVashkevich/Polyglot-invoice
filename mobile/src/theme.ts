@@ -46,10 +46,7 @@ export const kindColors = {
 
 export type ColorKey = keyof typeof kindColors;
 
-/** Requested and past its due date (product-decisions.md §5: a red mark). */
-export function isOverdue(item: Item, today = new Date().toISOString().slice(0, 10)): boolean {
-  return item.kind === 'invoice' && item.status === 'requested' && !!item.dueDate && item.dueDate < today;
-}
+export { isOverdue } from '@/lib/status';
 
 /** The color of an item on the calendar and in lists. */
 export function itemColorKey(item: Item): ColorKey {

@@ -48,7 +48,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "test": "node --test src/lib/invoice-math.test.ts"
+    "test": "node --test \"src/**/*.test.ts\"",
+    "check": "npm test && tsc --noEmit && expo lint"
   },
   "private": true
 }

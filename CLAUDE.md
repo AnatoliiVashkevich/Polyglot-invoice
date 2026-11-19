@@ -18,4 +18,10 @@ At the end of each session, update `docs/handoff.md` and commit.
 - `server/`: Python FastAPI (from build step 2).
 - `docs/`: the handoff note, the decisions, the plan, and `screen-map.html` (the approved screen sketches).
 
+**Tests: run them all before every commit** (they guard what the owner already tested on the iPhone):
+- server: `cd server` then `venv\Scripts\python -m pytest` (offline, fake database; `test_invoice_flow.py` walks a whole
+  invoice and reads the PDF text)
+- app: `cd mobile` then `npm run check` (plain-Node unit tests in `src/**/*.test.ts` + type check + lint)
+New rules get a test in the same commit. Pure app logic goes in `src/lib/` files without `@/` imports so Node can test it.
+
 **Run on the iPhone:** in `mobile/`, run `npx expo start --tunnel` and scan the QR code with Expo Go.
