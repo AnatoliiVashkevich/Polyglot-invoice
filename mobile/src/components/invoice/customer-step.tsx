@@ -112,6 +112,13 @@ export function CustomerStep({
         style={[styles.search, { backgroundColor: colors.card, borderColor: colors.line, color: colors.text }]}
       />
 
+      {access === 'undetermined' &&
+        row('ask', t('Search your phone contacts'), t('To find your customers faster.'), askContacts, '📇')}
+      {access === 'limited' &&
+        row('more', t('Choose more contacts'), t('You shared only some contacts with the app.'), moreContacts, '📇')}
+      {access === 'denied' &&
+        row('settings', t('Allow contacts in Settings'), t('To find your customers faster.'), () => Linking.openSettings(), '📇')}
+
       {!q && recent.length > 0 && (
         <>
           {heading(clients.some((c) => c.last_used) ? t('Recent') : t('Your clients'))}
@@ -137,12 +144,6 @@ export function CustomerStep({
       {!!q && (access === 'all' || access === 'limited') && fromPhone.length === 0 && (
         <Text style={[styles.hint, { color: colors.muted }]}>{t('No phone contacts match “{q}”.', { q })}</Text>
       )}
-      {access === 'undetermined' &&
-        row('ask', t('Search your phone contacts'), t('To find your customers faster.'), askContacts, '📇')}
-      {access === 'limited' &&
-        row('more', t('Choose more contacts'), t('You shared only some contacts with the app.'), moreContacts, '📇')}
-      {access === 'denied' &&
-        row('settings', t('Allow contacts in Settings'), t('To find your customers faster.'), () => Linking.openSettings(), '📇')}
       {!!q && row('new', t('New client “{name}”', { name: q }), '', pickNew, '＋')}
     </View>
   );
