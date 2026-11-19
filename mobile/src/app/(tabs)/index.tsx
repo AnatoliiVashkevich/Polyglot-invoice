@@ -1,8 +1,8 @@
 // HOME: the month calendar (works like the iPhone calendar) with the selected day's list under it,
 // and the orange ＋ for creating. The items come from the server: the month on screen and one month either side.
 import * as Haptics from 'expo-haptics';
-import { useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -33,6 +33,17 @@ export default function CalendarScreen() {
   const [filter, setFilter] = useState<Filter>('all');
   const [selectedDay, setSelectedDay] = useState(todayIso());
   const [month, setMonth] = useState(monthOf(todayIso()));
+
+  // after "Create invoice" the questionnaire comes back here with ?day=…&at=…: show that day
+  const params = useLocalSearchParams<{ day?: string; at?: string }>();
+  const [seenAt, setSeenAt] = useState(params.at);
+  if (params.day && params.at !== seenAt) {
+    setSeenAt(params.at);
+    setSelectedDay(params.day);
+  }
+  useEffect(() => {
+    if (params.day) pager.current?.showMonth(monthOf(params.day));
+  }, [params.day, params.at]);
 
   // load the visible month plus one month either side (so swiping shows bars right away)
   const load = useCallback(async (monthKey: string) => {

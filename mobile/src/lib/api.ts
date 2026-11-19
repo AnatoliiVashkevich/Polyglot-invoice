@@ -24,6 +24,7 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public status: number,
+    public detail?: Record<string, unknown>, // e.g. a used invoice number: { message, next }
   ) {
     super(message);
   }
@@ -68,12 +69,17 @@ async function send(path: string, init: RequestInit, token?: string) {
 
 async function errorFrom(res: Response): Promise<ApiError> {
   let message = `Something went wrong (${res.status}).`;
+  let detail: Record<string, unknown> | undefined;
   try {
     const body = await res.json();
     if (typeof body.detail === 'string') message = body.detail;
     else if (Array.isArray(body.detail)) message = 'Please check the fields and try again.';
+    else if (body.detail && typeof body.detail === 'object') {
+      detail = body.detail;
+      if (typeof body.detail.message === 'string') message = body.detail.message;
+    }
   } catch {}
-  return new ApiError(message, res.status);
+  return new ApiError(message, res.status, detail);
 }
 
 async function refresh(): Promise<boolean> {

@@ -7,12 +7,13 @@ import logging
 from datetime import date, datetime, timedelta, timezone
 from typing import Literal
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Response
 from pydantic import BaseModel, Field, field_validator
 
 import auth
 import database as db
 from money import totals
+from numbering import next_free, next_number
 
 logging.basicConfig(level=logging.INFO)
 app = FastAPI(title="Polyglot Invoice")
@@ -92,6 +93,8 @@ class ClientIn(BaseModel):
     address: str = Field("", max_length=500)
     notes: str = Field("", max_length=5000)
     preferred_language: Literal["", "en", "es", "pt", "ru", "uk"] = ""
+    # from the phone contacts: if a client with the same phone or email exists, use it (no duplicate)
+    use_existing: bool = False
 
 
 class ClientPatch(BaseModel):
@@ -110,17 +113,43 @@ def _client_or_404(client_id, uid) -> dict:
     return row
 
 
+def phone_key(phone: str) -> str:
+    """Phone numbers compared by their last 10 digits: "+1 (561) 555-0101" == "561-555-0101"."""
+    digits = "".join(ch for ch in phone or "" if ch.isdigit())
+    return digits[-10:] if len(digits) >= 7 else ""
+
+
+def find_same_client(clients: list[dict], phone: str, email: str) -> dict | None:
+    p, e = phone_key(phone), (email or "").strip().lower()
+    for c in clients:
+        if (p and phone_key(c.get("phone", "")) == p) or (e and (c.get("email") or "").strip().lower() == e):
+            return c
+    return None
+
+
 @app.get("/api/clients")
 def list_clients(uid: str = Depends(auth.current_user)):
-    return sorted(db.list_rows("clients", uid), key=lambda c: c["name"].lower())
+    """A-Z, each with last_used (when their newest job was created) so the app can show recent clients first."""
+    last_used: dict[str, str] = {}
+    for it in db.list_rows("items", uid):
+        cid = it.get("client_id")
+        if cid and str(it.get("created_at", "")) > last_used.get(cid, ""):
+            last_used[cid] = str(it["created_at"])
+    rows = [{**c, "last_used": last_used.get(c["id"], "")} for c in db.list_rows("clients", uid)]
+    return sorted(rows, key=lambda c: c["name"].lower())
 
 
 @app.post("/api/clients", status_code=201)
-def create_client(body: ClientIn, uid: str = Depends(auth.current_user)):
-    data = body.model_dump()
+def create_client(body: ClientIn, response: Response, uid: str = Depends(auth.current_user)):
+    data = body.model_dump(exclude={"use_existing"})
     data["name"] = data["name"].strip()
     if not data["name"]:
         raise HTTPException(400, "Please enter the client's name.")
+    if body.use_existing:
+        same = find_same_client(db.list_rows("clients", uid), data["phone"], data["email"])
+        if same:
+            response.status_code = 200
+            return same
     return db.insert_row("clients", data, uid)
 
 
@@ -186,8 +215,29 @@ class ItemFields(BaseModel):
         return None if v is None else _time(v)
 
 
+class NewExpense(BaseModel):
+    """Step 4 of the questionnaire: always saved as the user's expense; on the invoice too when add_to_invoice."""
+    description: str = Field("", max_length=500)
+    amount: float = Field(0, ge=0, le=10000000)
+    add_to_invoice: bool = True
+
+
 class ItemIn(ItemFields):
     kind: Kind
+    expenses: list[NewExpense] = Field([], max_length=50)
+
+
+def _numbers_in_use(kind: str, uid: str, except_id: str | None = None) -> tuple[set[str], str | None]:
+    """(every number used for this kind, the most recently created one)."""
+    rows = [r for r in db.list_rows("items", uid, kind=kind) if r.get("number") and r["id"] != except_id]
+    rows.sort(key=lambda r: str(r.get("created_at", "")))
+    return {r["number"] for r in rows}, (rows[-1]["number"] if rows else None)
+
+
+def _check_number(kind: str, number: str, uid: str, except_id: str | None = None) -> None:
+    used, _ = _numbers_in_use(kind, uid, except_id)
+    if number.strip().lower() in {u.strip().lower() for u in used}:
+        raise HTTPException(409, {"message": f"{number} is already used.", "next": next_free(number, used)})
 
 
 def _with_client_names(items: list[dict], uid: str) -> list[dict]:
@@ -227,7 +277,7 @@ def list_items(start: str | None = None, end: str | None = None, client_id: str 
 
 @app.post("/api/items", status_code=201)
 def create_item(body: ItemIn, uid: str = Depends(auth.current_user)):
-    data = body.model_dump(exclude_none=True)
+    data = body.model_dump(exclude_none=True, exclude={"expenses"})
     kind = data["kind"]
     data.setdefault("status", "created")
     if data["status"] not in STATUSES[kind]:
@@ -236,7 +286,19 @@ def create_item(body: ItemIn, uid: str = Depends(auth.current_user)):
         raise HTTPException(400, "Please choose a customer.")
     _check_links(data, uid)
     data.setdefault("date", db.today_local())
-    if kind != "task":   # invoices and estimates take their defaults from Settings
+    if kind != "task":
+        data["lines"] = data.get("lines", []) + [
+            {"text": e.description.strip() or "Materials", "qty": 1, "price": e.amount, "kind": "material"}
+            for e in body.expenses if e.add_to_invoice and e.amount > 0]
+        if not any(line.get("text") or line.get("price") for line in data["lines"]):
+            raise HTTPException(400, "Please add the work and prices.")
+        number = (data.get("number") or "").strip()
+        if number:
+            _check_number(kind, number, uid)
+        else:
+            used, last = _numbers_in_use(kind, uid)
+            number = next_number(kind, last, used)
+        data["number"] = number   # invoices and estimates take their defaults from Settings
         biz = _business(uid)
         data.setdefault("tax_rate", float(biz.get("tax_rate") or 0))
         data.setdefault("tax_applies_to", biz.get("tax_applies_to") or "materials")
@@ -247,7 +309,18 @@ def create_item(body: ItemIn, uid: str = Depends(auth.current_user)):
     if data["status"] == "paid":
         data.setdefault("paid_date", db.today_local())
     row = db.insert_row("items", _apply_totals(data), uid)
+    for e in body.expenses:
+        if e.amount > 0:
+            db.insert_row("expenses", {"date": data["date"], "description": e.description.strip(), "amount": e.amount,
+                                       "category": "Materials", "client_id": data.get("client_id"),
+                                       "item_id": row["id"] if e.add_to_invoice and kind != "task" else None}, uid)
     return _with_client_names([row], uid)[0]
+
+
+@app.get("/api/next-number")
+def get_next_number(kind: Literal["invoice", "estimate"] = "invoice", uid: str = Depends(auth.current_user)):
+    used, last = _numbers_in_use(kind, uid)
+    return {"number": next_number(kind, last, used)}
 
 
 @app.get("/api/items/{item_id}")
@@ -269,6 +342,8 @@ def patch_item(item_id: str, body: ItemFields, uid: str = Depends(auth.current_u
     if old["kind"] != "task" and "client_id" in data and not data["client_id"]:
         raise HTTPException(400, "Please choose a customer.")
     _check_links(data, uid)
+    if (data.get("number") or "").strip() and data["number"].strip() != old.get("number") and old["kind"] != "task":
+        _check_number(old["kind"], data["number"].strip(), uid, except_id=item_id)
     if status == "paid" and not (data.get("paid_date") or old.get("paid_date")):
         data["paid_date"] = db.today_local()
     if old["status"] == "paid" and status != "paid":   # Undo payment

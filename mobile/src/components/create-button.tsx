@@ -1,5 +1,6 @@
 // The orange ＋ floating above the tab bar, and its menu: "New invoice" big and first, then Estimate · Task · Expense.
 import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,7 +20,8 @@ export function CreateButton({ onCreate }: { onCreate?: (kind: CreateKind) => vo
   const choose = (kind: CreateKind) => {
     setOpen(false);
     if (onCreate) onCreate(kind);
-    else Alert.alert(t('Coming soon'), t('This form is built in the next step.'));
+    else if (kind === 'invoice') router.push('/new-invoice');
+    else Alert.alert(t('Coming soon'), t('This form is built in a later step.'));
   };
 
   return (

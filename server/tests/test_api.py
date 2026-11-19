@@ -205,3 +205,55 @@ def test_expenses_default_to_today_and_stay_private(api):
     r = api.post("/api/expenses", json={"store": "Home Depot", "amount": 64.5})
     assert r.status_code == 201 and r.json()["date"] == "2026-11-19"
     assert client_as(OTHER).get("/api/expenses").json() == []
+
+
+# ---------- step 3: numbering, contacts, expenses on the invoice ----------
+def test_invoices_get_numbers_that_continue_the_users_format(api):
+    cid = new_client(api)["id"]
+    assert new_invoice(api, cid)["number"] == "INV-0001"
+    assert api.get("/api/next-number").json()["number"] == "INV-0002"
+    assert new_invoice(api, cid, number="2026-045")["number"] == "2026-045"
+    assert api.get("/api/next-number").json()["number"] == "2026-046"
+    assert api.get("/api/next-number", params={"kind": "estimate"}).json()["number"] == "EST-0001"
+
+
+def test_used_number_is_refused_with_the_next_free_one(api):
+    cid = new_client(api)["id"]
+    new_invoice(api, cid, number="A-17")
+    new_invoice(api, cid, number="A-18")
+    r = api.post("/api/items", json={"kind": "invoice", "client_id": cid, "number": "A-17",
+                                     "lines": [{"text": "x", "price": 1}]})
+    assert r.status_code == 409 and r.json()["detail"]["next"] == "A-19"
+
+
+def test_invoice_needs_work_and_prices(api):
+    cid = new_client(api)["id"]
+    assert api.post("/api/items", json={"kind": "invoice", "client_id": cid}).status_code == 400
+
+
+def test_phone_contact_reuses_the_same_client(api, fake):
+    ann = new_client(api)   # phone 555-0100
+    api.patch(f"/api/clients/{ann['id']}", json={"phone": "+1 (561) 555-0101", "email": "ann@example.com"})
+    r = api.post("/api/clients", json={"name": "Ann L.", "phone": "561-555-0101", "use_existing": True})
+    assert r.status_code == 200 and r.json()["id"] == ann["id"]
+    r = api.post("/api/clients", json={"name": "Ann", "email": "ANN@example.com", "use_existing": True})
+    assert r.json()["id"] == ann["id"]
+    r = api.post("/api/clients", json={"name": "Bob", "phone": "305-555-0199", "use_existing": True})
+    assert r.status_code == 201 and len(fake.tables["clients"]) == 2
+
+
+def test_recent_clients_have_last_used(api):
+    ann, bob = new_client(api, "Ann Lee"), new_client(api, "Bob Ray")
+    new_invoice(api, bob["id"])
+    rows = {c["name"]: c["last_used"] for c in api.get("/api/clients").json()}
+    assert rows["Bob Ray"] and rows["Ann Lee"] == ""
+
+
+def test_expenses_are_saved_and_added_to_the_invoice_when_asked(api, fake):
+    cid = new_client(api)["id"]
+    inv = new_invoice(api, cid, lines=[{"text": "Doors", "qty": 2, "price": 200}],
+                      expenses=[{"description": "Materials", "amount": 64.5, "add_to_invoice": True},
+                                {"description": "Drill bits", "amount": 12, "add_to_invoice": False}])
+    assert inv["total"] == 464.5 and inv["lines"][-1] == {"text": "Materials", "qty": 1, "price": 64.5, "kind": "material"}
+    saved = sorted(fake.tables["expenses"].values(), key=lambda e: e["amount"])
+    assert [(e["amount"], e["item_id"], e["client_id"]) for e in saved] == [(12, None, cid), (64.5, inv["id"], cid)]
