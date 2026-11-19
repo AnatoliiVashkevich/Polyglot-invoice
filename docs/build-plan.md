@@ -58,7 +58,7 @@ A step is done only when its **"Test on iPhone"** works for the owner. Then mark
   reminder); task → invoice prefilled; local notifications for task reminders and late invoices (with the ready reminder message).
 - **Test on iPhone:** walk one job from estimate → scheduled → done → invoice → paid.
 
-### [ ] 6. Clients
+### [x] 6. Clients  — tested on the iPhone 2026-11-19
 - Clients tab: list, search, the client page (contacts, preferred language, paid / owes, their jobs); ＋ pre-fills the client;
   Call / Text / Navigate.
 - **Test on iPhone:** find a client, call, navigate, start an invoice from their page.

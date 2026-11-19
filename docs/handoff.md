@@ -7,7 +7,7 @@ Last updated: 2026-11-19. Update this file at the end of every session.
   field frames, Work / Materials on every line (no Expenses screen; Create asks "Add these materials to your expenses?"),
   prices kept from estimate → task → invoice, "Pick from all contacts", "Choose the customer". The job card is
   `src/app/job/[id].tsx`; notifications in `src/lib/notifications.ts` (the late-invoice notice was not seen live yet).
-- **Step 6 (Clients) is built, waiting for the owner's iPhone test (2026-11-19).** Clients tab
+- **Step 6 (Clients) is done and tested on the iPhone (2026-11-19): "perfect".** Clients tab
   `src/app/(tabs)/clients.tsx` (search, "owes $" per client, "＋ New client"), the client's page `src/app/client/[id].tsx`
   (Call / Text / Navigate, Paid total / Owes now, contacts, language, notes, their jobs newest first; ＋ pre-fills the
   client), `src/app/edit-client.tsx` (edit / new / delete). Pure helpers in `src/lib/client-tools.ts` (tested).
@@ -15,6 +15,10 @@ Last updated: 2026-11-19. Update this file at the end of every session.
   **Open ideas to discuss with the owner** are in product-decisions.md "Still to decide" (easier price entry, repeating
   tasks, history, notes). Remind the owner about them.
 - If Metro says a package "could not be resolved" after a new install: stop Expo and run `npx expo start --clear`.
+- The owner saw the app "crash like a reload" sometimes. Most likely Fast Refresh reloading while code was being
+  edited; the owner will report if it happens when nothing is being changed (ask for the screen and a screenshot).
+- **Next:** first the open ideas in product-decisions.md "Still to decide" (repeating tasks, easier price entry,
+  history, notes, deposits), then Step 7 (voice and languages). Ask the owner which first.
 - **Steps 0–4 are done and tested on the owner's iPhone (2026-11-19).** The owner loves the app so far.
 - Step 4 built: server `invoice_pdf.py` + `doc_i18n.py` (PDF labels in 5 languages; Cyrillic via Arial on Windows —
   hosting will need DejaVu or PDF_FONT), `GET /api/items/{id}/pdf?lang=`; app `src/app/invoice/[id].tsx` (PDF preview
