@@ -3,27 +3,18 @@
 Last updated: 2026-11-19. Update this file at the end of every session.
 
 ## Status
-- **Steps 0 and 1 of `build-plan.md` are built** (Expo app, 4 tabs, the month calendar with FAKE data, the ＋ menu).
-  It compiles, and the type check and lint pass. **It has not been tested on the owner's iPhone yet.**
-- Node.js was upgraded to v26 on the owner's PC (Expo SDK 58 needs Node 22+).
-- The next step after the iPhone test is **Step 2: server and database**.
+- **Steps 0 and 1 are done and tested on the owner's iPhone (2026-11-19).** Layout fixes after the test: the gap under
+  the filter chips (horizontal ScrollView needed `flexGrow: 0`), and a busy day shows 1 bar + a gray "+n" bar.
+- **Next: Step 2, server and database.** Started 2026-11-19; first question to the owner: may the old crm-solo Supabase
+  project (test data only) be reused for the new schema?
 
-## What the owner needs to do next (test on the iPhone)
-1. Install **Expo Go** from the App Store.
-2. The PC and the iPhone on the **same Wi-Fi**.
-3. In VS Code, a new terminal:
-   ```
-   cd C:\polyglot-invoice\mobile
-   npx expo start
-   ```
-4. Point the iPhone **Camera** at the QR code and tap "Open in Expo Go". If Windows asks about the firewall, click **Allow**.
-5. If the phone can't connect: Ctrl+C, then `npx expo start --tunnel` (answer **y** if it asks to install something).
-
-**Expected:** month calendar (year + month, Today, 4 colored filter chips), colored bars with first names, swipe between
-months, tap a day to see its list below, the orange ＋ opens the menu (big "New invoice"; forms come in step 3),
-4 tabs at the bottom (3 of them empty for now).
-One change from the decisions to confirm with the owner: on a phone the bars are too small to tap one by one, so tapping
-a day opens its list, and a row opens the job (job card in step 5).
+## How the owner runs the app on the iPhone (what worked)
+- The owner has a free Expo account (**qanatolii**), signed in both in Expo Go and on the PC (`npx expo login`).
+  The tunnel needs both sign-ins in this SDK.
+- `@expo/ngrok` is a dev dependency of `mobile/`. Run: `cd C:\polyglot-invoice\mobile` then `npx expo start --tunnel`.
+- If no QR code shows (Claude starting Expo in the background has no QR), the owner types the address
+  `exp://<tunnel>.exp.direct` into Safari on the iPhone. Find it with `curl http://127.0.0.1:4040/api/tunnels`.
+- The blue gear button on screen is Expo Go's own tools button, not part of the app.
 
 ## Files to read in a new chat
 1. `CLAUDE.md`: how to work with the owner and the project layout

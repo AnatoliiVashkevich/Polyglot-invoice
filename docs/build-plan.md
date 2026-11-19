@@ -24,12 +24,12 @@ A step is done only when its **"Test on iPhone"** works for the owner. Then mark
 
 ## Steps
 
-### [~] 0. Setup: "Hello" on the iPhone  — built 2026-11-18, waiting for the iPhone test
+### [x] 0. Setup: "Hello" on the iPhone  — tested on the iPhone 2026-11-19
 - Check Node (Expo needs a recent Node 20 LTS or newer; upgrade if needed), create the folder and git repo, create the Expo app.
 - Run it with `npx expo start --tunnel`; the owner scans the QR code with Expo Go.
 - **Test on iPhone:** the app opens and shows "Polyglot Invoice" and the 4 bottom tabs.
 
-### [~] 1. The calendar (fake data)  — built 2026-11-18, waiting for the iPhone test
+### [x] 1. The calendar (fake data)  — tested on the iPhone 2026-11-19
 - Month grid like the iPhone calendar, in our own look: swipe between months, the year follows, Today button, accent circle
   on today, filter chips, colored bars with the customer's first name, the day list under the month, the floating ＋ with its menu.
 - **Test on iPhone:** swiping, tapping days, the list, the ＋ menu all feel natural.

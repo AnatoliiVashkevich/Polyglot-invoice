@@ -9,7 +9,7 @@ import { itemColorKey, kindColors, radius, useColors, type Colors } from '@/them
 import type { Item } from '@/types';
 
 const MONTHS_EACH_SIDE = 60; // 5 years back and ahead
-export const CELL_HEIGHT = 56;
+export const CELL_HEIGHT = 60; // 2 top + 26 number + 2 × (2 gap + 13 bar) + 2 spare
 const MAX_BARS = 2;
 
 export type MonthPagerHandle = { showMonth: (monthKey: string, animated?: boolean) => void };
@@ -150,7 +150,8 @@ function DayCell({ day, items, inMonth, isToday, isSelected, onPress, colors }: 
           {Number(day.slice(8))}
         </Text>
       </View>
-      {items.slice(0, MAX_BARS).map((item) => {
+      {/* at most 2 lines under the number: 2 bars, or 1 bar + "+n" (so nothing spills into the next week) */}
+      {items.slice(0, items.length > MAX_BARS ? MAX_BARS - 1 : MAX_BARS).map((item) => {
         const done = item.status === 'paid' || item.status === 'done';
         return (
           <View
@@ -163,7 +164,11 @@ function DayCell({ day, items, inMonth, isToday, isSelected, onPress, colors }: 
           </View>
         );
       })}
-      {items.length > MAX_BARS && <Text style={[styles.more, { color: colors.muted }]}>+{items.length - MAX_BARS}</Text>}
+      {items.length > MAX_BARS && (
+        <View style={[styles.bar, styles.moreBar, { backgroundColor: colors.line, opacity: inMonth ? 1 : 0.35 }]}>
+          <Text style={[styles.barText, { color: colors.muted }]}>+{items.length - MAX_BARS + 1}</Text>
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -181,7 +186,7 @@ const styles = StyleSheet.create({
   },
   num: { alignSelf: 'center', width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   numText: { fontSize: 15, fontVariant: ['tabular-nums'] },
-  bar: { height: 12, borderRadius: radius.sm / 2, paddingHorizontal: 3, justifyContent: 'center' },
+  bar: { height: 13, borderRadius: radius.sm / 2, paddingHorizontal: 3, justifyContent: 'center' },
   barText: { color: '#FFFFFF', fontSize: 9, fontWeight: '700' },
-  more: { fontSize: 9, fontWeight: '700', textAlign: 'center', lineHeight: 10 },
+  moreBar: { alignItems: 'center' },
 });

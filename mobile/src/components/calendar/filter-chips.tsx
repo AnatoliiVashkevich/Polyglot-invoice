@@ -16,7 +16,7 @@ const FILTERS: { key: Exclude<Filter, 'all'>; label: string }[] = [
 export function FilterChips({ value, onChange }: { value: Filter; onChange: (f: Filter) => void }) {
   const colors = useColors();
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scroll} contentContainerStyle={styles.row}>
       {FILTERS.map(({ key, label }) => {
         const active = value === key;
         const color = kindColors[key];
@@ -43,6 +43,8 @@ export function FilterChips({ value, onChange }: { value: Filter; onChange: (f: 
 }
 
 const styles = StyleSheet.create({
+  // without flexGrow: 0 a horizontal ScrollView stretches down and leaves a big empty gap under the chips
+  scroll: { flexGrow: 0 },
   row: { gap: 6, paddingHorizontal: 16 },
   chip: {
     flexDirection: 'row',
