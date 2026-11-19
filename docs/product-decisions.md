@@ -233,6 +233,9 @@ the website address (polyglotinvoice.com) and a USPTO trademark search.
 - **PDF:** the client's name, address, phone and email are together under BILL TO. JOB SITE shows only when the job
   address differs from the client's address.
 - **Calendar:** shows only the weeks the month needs (4–6), no extra row of next month.
+- **Send stays automatic** (owner, 2026-11-19): closing the share sheet after Send switches the invoice to Requested,
+  without asking "Did you send it?". The status can still be changed by hand.
+- **Day list rows:** a long, multi-line description is shortened to one line; the amount and the status always show.
 
 ## 13. Database (decided 2026-11-19)
 

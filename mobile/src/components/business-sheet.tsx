@@ -49,7 +49,7 @@ function Body({ settings, onClose, onSaved }: { settings: Settings; onClose: () 
   };
 
   return (
-    <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
+    <KeyboardAvoidingView behavior="padding" style={{ flex: 1, justifyContent: 'flex-end' }}>
       <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: colors.backdrop }]} onPress={onClose} />
       <View style={[styles.sheet, { backgroundColor: colors.bg, paddingBottom: insets.bottom + 12, maxHeight: '88%' }]}>
         <View style={[styles.handle, { backgroundColor: colors.line }]} />
@@ -77,10 +77,6 @@ function Body({ settings, onClose, onSaved }: { settings: Settings; onClose: () 
 
 const styles = StyleSheet.create({
   sheet: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
     borderTopLeftRadius: radius.lg + 6,
     borderTopRightRadius: radius.lg + 6,
     paddingHorizontal: 16,

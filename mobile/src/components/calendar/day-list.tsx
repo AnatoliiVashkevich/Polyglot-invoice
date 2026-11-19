@@ -26,10 +26,10 @@ export function DayRow({ item, onPress, actions = [] }: { item: Item; onPress: (
     item.kind === 'task'
       ? [item.time && formatTime(item.time), who, t(KIND_LABEL.task)].filter(Boolean).join(' · ')
       : `${who} · ${t(KIND_LABEL[item.kind])}${item.number ? ` ${item.number}` : ''}`;
-  const second =
-    item.kind === 'task'
-      ? [item.title, item.address && `📍 ${item.address}`].filter(Boolean).join(' · ')
-      : [item.title, item.amount !== undefined && money(item.amount)].filter(Boolean).join(' · ');
+  const title = item.title.replace(/\s+/g, ' ').trim(); // a long scope of work → one short line
+  const second = item.kind === 'task' ? [title, item.address && `📍 ${item.address}`].filter(Boolean).join(' · ') : title;
+  // never cut off: the amount and the status (the description gives way instead)
+  const amount = item.kind !== 'task' && item.amount !== undefined ? money(item.amount) : '';
   const showStatus = item.status !== 'created';
   const overdue = isOverdue(item);
   const row = (
@@ -41,17 +41,27 @@ export function DayRow({ item, onPress, actions = [] }: { item: Item; onPress: (
         <Text style={[styles.first, { color: colors.text }]} numberOfLines={1}>
           {first}
         </Text>
-        <Text style={[styles.second, { color: colors.muted }]} numberOfLines={1}>
-          {second}
-          {showStatus && (
-            <Text style={{ color: item.status === 'requested' ? kindColors.unpaid : colors.muted, fontWeight: '700' }}>
-              {' · '}
-              {item.status === 'paid' ? '✓ ' : ''}
-              {t(STATUS_LABEL[item.status])}
-              {overdue ? ` · ${t('overdue')}` : ''}
+        <View style={styles.secondRow}>
+          {!!second && (
+            <Text style={[styles.second, styles.shrink, { color: colors.muted }]} numberOfLines={1}>
+              {second}
+              {amount || showStatus ? ' ·' : ''}
             </Text>
           )}
-        </Text>
+          {(!!amount || showStatus) && (
+            <Text style={[styles.second, { color: colors.muted }]} numberOfLines={1}>
+              {amount ? ` ${amount}` : ''}
+              {showStatus && (
+                <Text style={{ color: item.status === 'requested' ? kindColors.unpaid : colors.muted, fontWeight: '700' }}>
+                  {amount ? ' · ' : ' '}
+                  {item.status === 'paid' ? '✓ ' : ''}
+                  {t(STATUS_LABEL[item.status])}
+                  {overdue ? ` · ${t('overdue')}` : ''}
+                </Text>
+              )}
+            </Text>
+          )}
+        </View>
       </View>
     </Pressable>
   );
@@ -88,6 +98,8 @@ const styles = StyleSheet.create({
   body: { flex: 1, paddingHorizontal: 12, paddingVertical: 9, gap: 2, justifyContent: 'center' },
   first: { fontSize: 15, fontWeight: '600' },
   second: { fontSize: 13 },
+  secondRow: { flexDirection: 'row', alignItems: 'center' },
+  shrink: { flexShrink: 1 },
   actions: { flexDirection: 'row', marginLeft: 8, gap: 6 },
   action: { width: 84, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
   actionText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700', textAlign: 'center' },
