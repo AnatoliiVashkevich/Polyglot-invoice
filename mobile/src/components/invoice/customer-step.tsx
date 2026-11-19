@@ -1,12 +1,14 @@
 // Step 1 · Customer: ONE search box. Before typing: recent clients. While typing:
 //   Your clients → From your phone contacts → ＋ New client "typed name"
 // The contacts permission is asked only when the user taps "Search your phone contacts" (with the reason).
+// Once allowed, matching contacts simply appear while typing. Refused → a row that opens Settings;
+// only some contacts shared (iOS 18) → a row to choose more.
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { t } from '@/i18n';
 import type { Client, ClientDraft } from '@/lib/clients';
-import { contactsPermission, loadContacts, type PhoneContact } from '@/lib/contacts';
+import { chooseMoreContacts, contactsAccess, loadContacts, type ContactsAccess, type PhoneContact } from '@/lib/contacts';
 import { radius, useColors } from '@/theme';
 
 const MAX_ROWS = 8;
@@ -32,15 +34,15 @@ export function CustomerStep({
 }) {
   const colors = useColors();
   const [query, setQuery] = useState('');
-  const [permission, setPermission] = useState<string>('unknown');
+  const [access, setAccess] = useState<ContactsAccess | 'unknown'>('unknown');
   const [contacts, setContacts] = useState<PhoneContact[]>([]);
 
   useEffect(() => {
     let alive = true;
-    contactsPermission().then(async (status) => {
+    contactsAccess().then(async (status) => {
       if (!alive) return;
-      setPermission(status);
-      if (status === 'granted') {
+      setAccess(status);
+      if (status === 'all' || status === 'limited') {
         const list = await loadContacts();
         if (alive) setContacts(list);
       }
@@ -53,8 +55,9 @@ export function CustomerStep({
   const askContacts = async () => {
     const list = await loadContacts();
     setContacts(list);
-    setPermission(await contactsPermission());
+    setAccess(await contactsAccess());
   };
+  const moreContacts = async () => setContacts(await chooseMoreContacts());
 
   const q = query.trim();
   const recent = useMemo(() => {
@@ -131,8 +134,15 @@ export function CustomerStep({
           {fromPhone.map((c) => row(c.id, c.name, c.phone || c.email, () => pickContact(c), '📇'))}
         </>
       )}
-      {!!q && permission === 'undetermined' &&
+      {!!q && (access === 'all' || access === 'limited') && fromPhone.length === 0 && (
+        <Text style={[styles.hint, { color: colors.muted }]}>{t('No phone contacts match “{q}”.', { q })}</Text>
+      )}
+      {!!q && access === 'undetermined' &&
         row('ask', t('Search your phone contacts'), t('To find your customers faster.'), askContacts, '📇')}
+      {!!q && access === 'limited' &&
+        row('more', t('Choose more contacts'), t('You shared only some contacts with the app.'), moreContacts, '📇')}
+      {!!q && access === 'denied' &&
+        row('settings', t('Allow contacts in Settings'), t('To find your customers faster.'), () => Linking.openSettings(), '📇')}
       {!!q && row('new', t('New client “{name}”', { name: q }), '', pickNew, '＋')}
     </View>
   );

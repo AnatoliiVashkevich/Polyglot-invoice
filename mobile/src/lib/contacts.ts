@@ -6,13 +6,27 @@ export type PhoneContact = { id: string; name: string; phone: string; email: str
 
 let cache: PhoneContact[] | null = null;
 
-/** 'granted' | 'denied' | 'undetermined' without asking. */
-export async function contactsPermission(): Promise<string> {
+/** Without asking: 'all' (every contact) | 'limited' (only some, iOS 18+) | 'denied' | 'undetermined'. */
+export type ContactsAccess = 'all' | 'limited' | 'denied' | 'undetermined';
+
+export async function contactsAccess(): Promise<ContactsAccess> {
   try {
-    return (await getPermissionsAsync()).status;
+    const p = await getPermissionsAsync();
+    if (p.status === 'undetermined') return 'undetermined';
+    if (p.status !== 'granted') return 'denied';
+    return p.accessPrivileges === 'limited' ? 'limited' : 'all';
   } catch {
     return 'denied';
   }
+}
+
+/** iOS "limited" access: let the user pick more contacts, then reload. */
+export async function chooseMoreContacts(): Promise<PhoneContact[]> {
+  try {
+    await Contact.presentAccessPicker();
+  } catch {}
+  cache = null;
+  return loadContacts();
 }
 
 /** Asks (once) and loads the contacts. [] when refused. */
