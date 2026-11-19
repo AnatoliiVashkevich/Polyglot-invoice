@@ -217,6 +217,10 @@ the website address (polyglotinvoice.com) and a USPTO trademark search.
   "Allow contacts in Settings" (refused). With full access there is no row: matching contacts appear while typing,
   or "No phone contacts match…".
 - **Work lines** have Work · Qty (default 1) · Price, so "2 × $200" can be typed without voice.
+- **The client's language is asked as a friendly question, not "Preferred language":**
+  "Also send a copy in your client's language?" with the line "The invoice is always in English. If your client reads
+  another language better, they also get a copy in that language." Choices: "No, English only" · Español · Português ·
+  Русский · Українська ("English" = the document language from Settings). The same wording goes on the client's page (§9b).
 
 ## 13. Database (decided 2026-11-19)
 

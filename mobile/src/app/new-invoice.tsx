@@ -45,6 +45,8 @@ let keySeq = 0;
 const newKey = () => `k${++keySeq}`;
 const emptyWork = (): WorkRow => ({ key: newKey(), text: '', qty: '1', price: '' });
 const emptyExpense = (): ExpenseRow => ({ key: newKey(), description: '', amount: '', addToInvoice: true });
+// language names in the user's screen language (the chips show each language in its own name)
+const LANGUAGE_NAMES: Record<Lang, string> = { en: 'English', es: 'Spanish', pt: 'Portuguese', ru: 'Russian', uk: 'Ukrainian' };
 const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? '';
 
 export default function NewInvoiceScreen() {
@@ -103,6 +105,7 @@ export default function NewInvoiceScreen() {
     [workLines, expenseRows],
   );
   const taxRate = Number(settings?.tax_rate ?? 0);
+  const docLang: Lang = settings?.doc_language ?? 'en';
   const sum = totals(invoiceLines, taxOn ? taxRate : 0, settings?.tax_applies_to);
 
   // ----- moving between steps -----
@@ -234,12 +237,26 @@ export default function NewInvoiceScreen() {
             <Field label={t('Phone')} value={client.phone} onChangeText={(v) => setC({ phone: v })} keyboardType="phone-pad" textContentType="telephoneNumber" />
             <Field label={t('Email')} value={client.email} onChangeText={(v) => setC({ email: v })} keyboardType="email-address" autoCapitalize="none" />
             <Field label={t('Address')} value={client.address} onChangeText={(v) => setC({ address: v })} textContentType="fullStreetAddress" />
-            <Text style={[styles.label, { color: colors.muted }]}>{t('Preferred language')}</Text>
-            <View style={styles.chips}>
-              <Chip label={t('Not set')} active={!client.preferred_language} onPress={() => setC({ preferred_language: '' })} />
-              {(Object.keys(LANGUAGES) as Lang[]).map((l) => (
-                <Chip key={l} label={LANGUAGES[l]} active={client.preferred_language === l} onPress={() => setC({ preferred_language: l })} />
-              ))}
+            {/* the client's language: an extra translated copy (product-decisions.md §9), asked as a friendly question */}
+            <View style={[styles.langCard, { backgroundColor: colors.card }]}>
+              <Text style={[styles.langTitle, { color: colors.text }]}>{t('Also send a copy in your client’s language?')}</Text>
+              <Text style={[styles.small, { color: colors.muted }]}>
+                {t('The invoice is always in {lang}. If your client reads another language better, they also get a copy in that language.', {
+                  lang: t(LANGUAGE_NAMES[docLang]),
+                })}
+              </Text>
+              <View style={[styles.chips, { marginTop: 6 }]}>
+                <Chip
+                  label={t('No, {lang} only', { lang: t(LANGUAGE_NAMES[docLang]) })}
+                  active={!client.preferred_language || client.preferred_language === docLang}
+                  onPress={() => setC({ preferred_language: '' })}
+                />
+                {(Object.keys(LANGUAGES) as Lang[])
+                  .filter((l) => l !== docLang)
+                  .map((l) => (
+                    <Chip key={l} label={LANGUAGES[l]} active={client.preferred_language === l} onPress={() => setC({ preferred_language: l })} />
+                  ))}
+              </View>
             </View>
           </View>
         ) : null;
@@ -472,6 +489,8 @@ const styles = StyleSheet.create({
   total: { fontSize: 17, fontWeight: '700', textAlign: 'right' },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10 },
   switchText: { fontSize: 16 },
+  langCard: { borderRadius: radius.md, padding: 14, gap: 6, marginTop: 4 },
+  langTitle: { fontSize: 16, fontWeight: '700' },
   calendarCard: { borderRadius: radius.md, padding: 8 },
   cardTitle: { fontSize: 18, fontWeight: '700' },
   reviewLine: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
