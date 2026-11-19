@@ -1,0 +1,307 @@
+<title>Polyglot Invoice Screens</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: a vertical story of the app — each section = one area, phone frames side by side, arrows between steps */
+:root {
+  --bg: #F3F4F8; --card: #FFFFFF; --fg: #161A2B; --muted: #5F6680; --line: #DDE0EA;
+  --accent: #F97316; --task: #3B82F6; --est: #8B5CF6; --inv: #10B981; --unpaid: #EF4444; --phone: #0F1222;
+  --display: "Manrope", "Segoe UI", system-ui, sans-serif; --body: "Inter", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0E1120; --card: #181C2E; --fg: #ECEEF6; --muted: #9AA1BC; --line: #2A2F47; --phone: #05070F; color-scheme: dark } }
+:root[data-theme="dark"] { --bg: #0E1120; --card: #181C2E; --fg: #ECEEF6; --muted: #9AA1BC; --line: #2A2F47; --phone: #05070F; color-scheme: dark }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.5 var(--body); }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 28px 60px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(28px, 5vw, 40px); font-weight: 800; letter-spacing: -.02em; }
+h1 span { color: var(--accent); }
+.lead { color: var(--muted); max-width: 64ch; margin: 8px 0 0; }
+section { margin-top: 44px; }
+.sec-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.sec-head h2 { font-size: 22px; font-weight: 800; }
+.tag { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px;
+  border: 1px solid var(--line); color: var(--muted); }
+.tag.pro { border-color: var(--est); color: var(--est); }
+.note { color: var(--muted); font-size: 14px; max-width: 70ch; margin: 0 0 14px; }
+.flow { display: flex; gap: 10px; align-items: flex-start; overflow-x: auto; padding-bottom: 8px; }
+.arrow { flex: 0 0 auto; align-self: center; color: var(--accent); font-size: 22px; font-weight: 800; }
+
+/* phone frame */
+.phone { flex: 0 0 230px; background: var(--phone); border-radius: 30px; padding: 10px; }
+.screen { background: var(--card); border-radius: 22px; min-height: 420px; padding: 14px 12px; display: flex; flex-direction: column; gap: 8px;
+  font-size: 12px; position: relative; overflow: hidden; }
+.cap { font-size: 12px; color: var(--muted); text-align: center; margin-top: 6px; font-weight: 600; }
+.title { font-family: var(--display); font-weight: 800; font-size: 16px; }
+.small { font-size: 10.5px; color: var(--muted); }
+.row { display: flex; align-items: center; gap: 6px; }
+.btn { border-radius: 10px; padding: 7px 9px; font-weight: 700; text-align: center; border: 1px solid var(--line); }
+.btn.big { background: var(--accent); color: #fff; border: 0; padding: 10px; font-size: 13px; }
+.btn.inv { background: var(--inv); color: #fff; border: 0; }
+.field { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; color: var(--muted); }
+.mic { width: 64px; height: 64px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-size: 26px; margin: 8px auto; }
+.dots { display: flex; gap: 4px; justify-content: center; }
+.dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--line); }
+.dots i.on { background: var(--accent); }
+.tabs { margin-top: auto; display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); padding-top: 6px; text-align: center; font-size: 9.5px; color: var(--muted); }
+.tabs b { color: var(--accent); }
+.fab { position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%); width: 44px; height: 44px; border-radius: 50%; background: var(--accent);
+  color: #fff; display: grid; place-items: center; font-size: 26px; font-weight: 700; box-shadow: 0 4px 12px rgba(249,115,22,.4); }
+
+/* mini calendar */
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+.cal span { font-size: 9px; min-height: 26px; display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.cal .dow { color: var(--muted); font-weight: 700; min-height: 0; }
+.cal .t { background: var(--accent); color: #fff; border-radius: 50%; width: 16px; height: 16px; display: grid; place-items: center; font-weight: 800; }
+.cal .sel { outline: 1.5px solid var(--fg); border-radius: 6px; }
+.bar { display: block; width: 92%; height: 5px; border-radius: 9px; }
+.b-t { background: var(--task); } .b-e { background: var(--est); } .b-i { background: var(--inv); } .b-u { background: var(--unpaid); }
+.item { border-left: 4px solid var(--inv); background: var(--bg); border-radius: 8px; padding: 5px 7px; }
+.item.e { border-left-color: var(--est); } .item.t { border-left-color: var(--task); } .item.u { border-left-color: var(--unpaid); }
+.chips { display: flex; gap: 4px; flex-wrap: wrap; }
+.chip { font-size: 9px; padding: 1px 6px; border-radius: 99px; color: #fff; font-weight: 700; }
+.line { display: flex; justify-content: space-between; border-bottom: 1px dashed var(--line); padding: 3px 0; }
+.sheet { position: absolute; inset: auto 0 0 0; background: var(--card); border-top: 1px solid var(--line); border-radius: 18px 18px 0 0;
+  padding: 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 -8px 24px rgba(0,0,0,.15); }
+.dim { position: absolute; inset: 0; background: rgba(15,18,34,.35); }
+.lock { opacity: .55; }
+table.rules { border-collapse: collapse; width: 100%; background: var(--card); border-radius: 12px; overflow: hidden; font-size: 14px; }
+table.rules th, table.rules td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.rules th { font-family: var(--display); font-size: 13px; color: var(--muted); }
+.tbl { overflow-x: auto; }
+.ask { border: 2px dashed var(--accent); border-radius: 12px; padding: 12px 14px; background: var(--card); max-width: 70ch; }
+@media (prefers-reduced-motion: no-preference) { .fab { transition: transform .2s; } }
+</style>
+
+<div class="wrap">
+  <h1>Polyglot Invoice <span>·</span> screen map</h1>
+  <p class="lead">Every screen of the iPhone app and where each button leads. Built from the decisions we agreed on. Check it, and tell me what to change before development starts.</p>
+
+  <!-- 1. Home -->
+  <section>
+    <div class="sec-head"><h2>1. Home: the calendar</h2><span class="tag">Free</span></div>
+    <p class="note">Swipe left or right to change month. Tap a day and its list appears below. Tap an entry to open its card. The big orange ＋ is always there.</p>
+    <div class="flow">
+      <div><div class="phone"><div class="screen">
+        <div class="row" style="justify-content:space-between"><div><div class="small" style="color:var(--accent);font-weight:700">2026</div><div class="title">November</div></div><div class="btn" style="padding:3px 8px">Today</div></div>
+        <div class="chips"><span class="chip" style="background:var(--task)">Tasks</span><span class="chip" style="background:var(--est)">Estimates</span><span class="chip" style="background:var(--inv)">Invoices</span><span class="chip" style="background:var(--unpaid)">Unpaid</span></div>
+        <div class="cal">
+          <span class="dow">S</span><span class="dow">M</span><span class="dow">T</span><span class="dow">W</span><span class="dow">T</span><span class="dow">F</span><span class="dow">S</span>
+          <span>9</span><span>10<i class="bar b-i"></i></span><span>11</span><span>12<i class="bar b-u"></i></span><span>13</span><span>14<i class="bar b-t"></i></span><span>15</span>
+          <span>16</span><span>17<i class="bar b-e"></i></span><span class="sel"><b class="t">18</b><i class="bar b-i"></i><i class="bar b-t"></i></span><span>19</span><span>20<i class="bar b-t"></i></span><span>21</span><span>22</span>
+        </div>
+        <div class="small" style="font-weight:700;color:var(--fg)">Wed, Nov 18</div>
+        <div class="item"><b>● Ann Lee · Invoice INV-0012</b><br>Installed 3 doors · $700 · <b style="color:var(--unpaid)">Requested</b></div>
+        <div class="item t"><b>● Ben Cruz · Task</b> 2:00 PM<br>Fix gate latch · 📍 12 Palm Dr</div>
+        <div class="fab">＋</div>
+        <div class="tabs"><b>📅 Calendar</b><span>👥 Clients</span><span>💵 Money</span><span>⚙️ Settings</span></div>
+      </div></div><div class="cap">Calendar + day list</div></div>
+      <div class="arrow">→</div>
+      <div><div class="phone"><div class="screen">
+        <div class="title">November</div><div class="cal" style="opacity:.4"><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span><span>21</span><span>22</span></div>
+        <div class="dim"></div>
+        <div class="sheet">
+          <div class="btn big">💵  New invoice</div>
+          <div class="row" style="justify-content:space-between"><div class="btn">📋 Estimate</div><div class="btn">☑️ Task</div><div class="btn">🧾 Expense</div></div>
+        </div>
+      </div></div><div class="cap">＋ menu: invoice first</div></div>
+      <div class="arrow">↺</div>
+      <div><div class="phone"><div class="screen">
+        <div class="small">Swipe left on an entry</div>
+        <div class="row"><div class="item" style="flex:1"><b>● Ann Lee · INV-0012</b><br>$700 · Requested</div><div class="btn inv" style="padding:12px 6px">Mark<br>Paid</div><div class="btn" style="padding:12px 6px">Send</div></div>
+        <div class="small" style="margin-top:8px">Paid invoices stay on the calendar, lighter with a ✓.<br>Unpaid past due date: red mark + one notification.</div>
+      </div></div><div class="cap">Quick actions</div></div>
+    </div>
+  </section>
+
+  <!-- 2. New invoice -->
+  <section>
+    <div class="sec-head"><h2>2. New invoice: one question per screen</h2><span class="tag">Free · voice is Pro</span></div>
+    <p class="note">If the user speaks on step 3, the AI fills in the answers and the filled-in steps are skipped. Free users get plain fields on the same screens.</p>
+    <div class="flow">
+      <div><div class="phone"><div class="screen">
+        <div class="dots"><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="title">Who is it for?</div>
+        <div class="field" style="color:var(--fg)">🔍 Ann</div>
+        <div class="small" style="font-weight:700">YOUR CLIENTS</div><div class="field" style="color:var(--fg)">Ann Lee · (561) 555-0101</div>
+        <div class="small" style="font-weight:700">FROM YOUR PHONE CONTACTS</div><div class="field" style="color:var(--fg)">📇 Anna Petrova · (305) 555-0199</div>
+        <div class="btn">＋ New client "Ann"</div>
+      </div></div><div class="cap">1 · Customer</div></div>
+      <div class="arrow">→</div>
+      <div><div class="phone"><div class="screen">
+        <div class="dots"><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i></div>
+        <div class="title">Check Ann's info</div>
+        <div class="field" style="color:var(--fg)">Ann Lee</div><div class="field" style="color:var(--fg)">(561) 555-0101</div><div class="field" style="color:var(--fg)">ann@example.com</div><div class="field" style="color:var(--fg)">5 Oak St, Boca Raton</div>
+        <div class="field">Preferred language: <b style="color:var(--fg)">Español</b></div>
+        <div class="btn big" style="margin-top:auto">Next</div>
+      </div></div><div class="cap">2 · Check info</div></div>
+      <div class="arrow">→</div>
+      <div><div class="phone"><div class="screen">
+        <div class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i></div>
+        <div class="title">What did you do?</div>
+        <div class="small">Say the work and the prices, in any language</div>
+        <div class="mic">🎤</div>
+        <div class="field">“installed 2 single swing doors, 200 each, 1 double swing 300”</div>
+        <div class="line"><span>2 × Single swing door</span><b>$400</b></div><div class="line"><span>1 × Double swing door</span><b>$300</b></div>
+      </div></div><div class="cap">3 · Work + prices</div></div>
+      <div class="arrow">→</div>
+      <div><div class="phone"><div class="screen">
+        <div class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></div>
+        <div class="title">Any expenses?</div>
+        <div class="field" style="color:var(--fg)">Materials · $64.50</div>
+        <div class="row"><span>Add to invoice?</span><b style="margin-left:auto;color:var(--inv)">● On</b></div>
+        <div class="small">Always saved as your expense too.</div>
+        <div class="btn">＋ Another expense</div><div class="btn" style="margin-top:auto">Skip</div>
+      </div></div><div class="cap">4 · Expenses</div></div>
+      <div class="arrow">→</div>
+      <div><div class="phone"><div class="screen">
+        <div class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></div>
+        <div class="title">Date</div>
+        <div class="field" style="color:var(--fg)">Today, Nov 18</div>
+        <div class="field">Due: <b style="color:var(--fg)">Now</b> ▾</div>
+        <div class="btn big" style="margin-top:auto">Next</div>
+      </div></div><div class="cap">5 · Date</div></div>
+      <div class="arrow">→</div>
+      <div><div class="phone"><div class="screen">
+        <div class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div>
+        <div class="title">Review</div>
+        <div class="small">Tap anything to change it</div>
+        <div class="line"><span>Ann Lee</span><span>✏️</span></div>
+        <div class="line"><span>2 × Single swing door</span><b>$400</b></div><div class="line"><span>1 × Double swing door</span><b>$300</b></div><div class="line"><span>Materials</span><b>$64.50</b></div>
+        <div class="line"><b>Total</b><b>$764.50</b></div>
+        <div class="small">INV-0013 ✏️ · Nov 18 · Due now</div>
+        <div class="btn big" style="margin-top:auto">Create invoice</div>
+      </div></div><div class="cap">6 · Review</div></div>
+      <div class="arrow">→</div>
+      <div><div class="phone"><div class="screen">
+        <div class="title">INV-0013</div>
+        <div class="field" style="min-height:120px;display:grid;place-items:center">PDF preview</div>
+        <div class="small">Sends 2 files: <b style="color:var(--fg)">English + Español</b></div>
+        <div class="small">👁 Check in my language</div>
+        <div class="btn big">Send</div>
+        <div class="row" style="justify-content:space-between"><div class="btn" style="flex:1">✏️ Edit</div><div class="btn" style="flex:1">Later</div></div>
+      </div></div><div class="cap">PDF → Send = Requested</div></div>
+    </div>
+  </section>
+
+  <!-- 3. Job card -->
+  <section>
+    <div class="sec-head"><h2>3. The job card: one big "next step" button</h2><span class="tag">Free</span></div>
+    <p class="note">Task, estimate and invoice are stages of the same job. The card always shows the one obvious next step; everything else is smaller underneath.</p>
+    <div class="flow">
+      <div><div class="phone"><div class="screen">
+        <div class="small">Customer</div><div class="title">Ann Lee</div>
+        <div class="small">📞 (561) 555-0101 · 📍 5 Oak St</div>
+        <div class="row lock"><div class="btn" style="flex:1">Navigate</div><div class="btn" style="flex:1">Call</div><div class="btn" style="flex:1">Text</div></div>
+        <div class="item u"><b>💵 Invoice INV-0012</b> · Requested<br>Installed 3 doors</div>
+        <div class="line"><span>Doors</span><b>$700</b></div>
+        <div class="btn big">Mark Paid</div>
+        <div class="row"><div class="btn" style="flex:1">PDF</div><div class="btn" style="flex:1">Edit</div><div class="btn" style="flex:1">⋯</div></div>
+      </div></div><div class="cap">Invoice card</div></div>
+      <div class="tbl" style="flex:1;min-width:300px">
+        <table class="rules">
+          <tr><th>The job is…</th><th>The big button</th></tr>
+          <tr><td>Estimate · Created</td><td><b>Send estimate</b> → Sent</td></tr>
+          <tr><td>Estimate · Sent</td><td><b>Schedule the job</b> · <b>Make invoice</b></td></tr>
+          <tr><td>Task (scheduled job)</td><td><b>Job done → Create invoice</b> (prefilled)</td></tr>
+          <tr><td>Invoice · Created</td><td><b>Send invoice</b> → Requested</td></tr>
+          <tr><td>Invoice · Requested</td><td><b>Mark Paid</b> (method + date)</td></tr>
+          <tr><td>Invoice · Paid</td><td>✓ Done. Locked until "Undo payment".</td></tr>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. Other creates -->
+  <section>
+    <div class="sec-head"><h2>4. Task, estimate, expense</h2><span class="tag pro">Pro</span></div>
+    <div class="flow">
+      <div><div class="phone"><div class="screen">
+        <div class="title">New task</div>
+        <div class="small">1 Customer (or skip) · 2 What to do · 3 Date + time · 4 Reminder</div>
+        <div class="field" style="color:var(--fg)">Ben Cruz</div><div class="field" style="color:var(--fg)">Fix gate latch</div>
+        <div class="field" style="color:var(--fg)">Fri, Nov 20 · 2:00 PM</div><div class="field">Remind me: <b style="color:var(--fg)">1 hour before</b> ▾</div>
+        <div class="small">No prices: those come when it becomes an invoice.</div>
+      </div></div><div class="cap">Task</div></div>
+      <div><div class="phone"><div class="screen">
+        <div class="title">New estimate</div>
+        <div class="small">The same 6 steps as an invoice.</div>
+        <div class="small">Then: Send estimate → Schedule the job / Make invoice</div>
+        <div class="item e"><b>📋 EST-0004</b> · Sent<br>Deck repair · $1,800</div>
+        <div class="btn big">Schedule the job</div><div class="btn">Make invoice</div>
+      </div></div><div class="cap">Estimate</div></div>
+      <div><div class="phone"><div class="screen">
+        <div class="title">New expense</div>
+        <div class="field" style="min-height:90px;display:grid;place-items:center">📷 Photo of receipt</div>
+        <div class="field" style="color:var(--fg)">Home Depot · $64.50</div><div class="field" style="color:var(--fg)">Materials · Nov 18</div>
+        <div class="field">For which job? <b style="color:var(--fg)">General business</b> ▾</div>
+        <div class="btn big" style="margin-top:auto">Save</div>
+      </div></div><div class="cap">Expense (AI reads receipt)</div></div>
+    </div>
+  </section>
+
+  <!-- 5. Tabs -->
+  <section>
+    <div class="sec-head"><h2>5. Clients · Money · Settings</h2></div>
+    <div class="flow">
+      <div><div class="phone"><div class="screen">
+        <div class="title">Ann Lee</div>
+        <div class="small">(561) 555-0101 · ann@example.com · 5 Oak St</div>
+        <div class="field">Preferred language: <b style="color:var(--fg)">Español</b></div>
+        <div class="row lock"><div class="btn" style="flex:1">Call</div><div class="btn" style="flex:1">Text</div><div class="btn" style="flex:1">Navigate</div></div>
+        <div class="row"><div class="btn" style="flex:1">Paid<br><b>$2,140</b></div><div class="btn" style="flex:1">Owes<br><b style="color:var(--unpaid)">$700</b></div></div>
+        <div class="item u"><b>INV-0012</b> · $700 · Requested</div><div class="item"><b>INV-0009</b> · $640 · Paid ✓</div>
+        <div class="small">＋ here = new invoice for Ann</div>
+      </div></div><div class="cap">Client page <span class="tag">Free</span></div></div>
+      <div><div class="phone"><div class="screen">
+        <div class="title">Money</div><div class="field">This month ▾</div>
+        <div class="row"><div class="btn" style="flex:1">Received<br><b style="color:var(--inv)">$4,320</b></div><div class="btn" style="flex:1">Waiting<br><b style="color:var(--unpaid)">$1,150</b></div></div>
+        <div class="btn">Expenses <b>$610</b></div>
+        <div class="line"><span>Profit</span><b>$3,710</b></div><div class="line"><span>Set aside for taxes 25%</span><b>$928</b></div>
+        <div class="small">Sales tax collected (owed to state) shown separately, not counted as profit.</div>
+        <div class="btn">Export CSV</div>
+      </div></div><div class="cap">Money <span class="tag pro">Pro</span></div></div>
+      <div><div class="phone"><div class="screen">
+        <div class="title">Settings</div>
+        <div class="field" style="color:var(--fg)">Business · name, logo, phone, address, how you get paid</div>
+        <div class="field" style="color:var(--fg)">Invoices · document language, tax, due date, numbers, terms</div>
+        <div class="field" style="color:var(--fg)">App · app language, notifications</div>
+        <div class="field" style="color:var(--fg)">Account · subscription, export data, sign out, delete account</div>
+        <div class="field" style="color:var(--fg)">About · Terms, Privacy, support</div>
+      </div></div><div class="cap">Settings</div></div>
+    </div>
+  </section>
+
+  <!-- 6. First launch + trial -->
+  <section>
+    <div class="sec-head"><h2>6. First launch and the end of the trial</h2></div>
+    <div class="flow">
+      <div><div class="phone"><div class="screen">
+        <div class="title">Polyglot Invoice</div><div class="small">Speak your language, bill in your customer's.</div>
+        <div class="btn big" style="margin-top:auto">  Sign in with Apple</div><div class="btn">Email and password</div>
+      </div></div><div class="cap">Sign in</div></div>
+      <div class="arrow">→</div>
+      <div><div class="phone"><div class="screen">
+        <div class="dots"><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="title">Business name</div><div class="small">Shown at the top of every invoice.</div>
+        <div class="field" style="color:var(--fg)">Handy Tony LLC</div>
+        <div class="field" style="margin-top:auto;min-height:70px"><b style="color:var(--fg)">Handy Tony LLC</b><br><span class="small">INVOICE · preview fills in as you type</span></div>
+        <div class="row"><div class="btn" style="flex:1">Skip</div><div class="btn big" style="flex:1">Next</div></div>
+      </div></div><div class="cap">Setup: 6 short screens</div></div>
+      <div class="arrow">→</div>
+      <div><div class="phone"><div class="screen">
+        <div class="title">Your free trial ended</div>
+        <div class="small">Invoices stay free forever. Everything you created stays visible and exportable.</div>
+        <div class="line"><span>🎤 Voice invoices</span><b>Pro</b></div><div class="line"><span>🌐 Translated PDFs</span><b>Pro</b></div><div class="line"><span>Estimates · Tasks</span><b>Pro</b></div><div class="line"><span>Money · Expenses</span><b>Pro</b></div>
+        <div class="btn big" style="margin-top:auto">Subscribe with Apple</div><div class="btn">Continue free</div>
+      </div></div><div class="cap">After 14 days (no card before)</div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="ask"><b>One thing I assumed, please confirm:</b> the bottom bar has 4 tabs, <b>Calendar · Clients · Money · Settings</b>, and the orange ＋ floats above it on every main screen.</div>
+  </section>
+</div>
