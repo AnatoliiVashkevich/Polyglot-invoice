@@ -8,7 +8,7 @@ import { Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-nat
 
 import { t } from '@/i18n';
 import type { Client, ClientDraft } from '@/lib/clients';
-import { chooseMoreContacts, contactsAccess, loadContacts, type ContactsAccess, type PhoneContact } from '@/lib/contacts';
+import { contactsAccess, pickPhoneContact, loadContacts, type ContactsAccess, type PhoneContact } from '@/lib/contacts';
 import { radius, useColors } from '@/theme';
 
 const MAX_ROWS = 8;
@@ -57,7 +57,10 @@ export function CustomerStep({
     setContacts(list);
     setAccess(await contactsAccess());
   };
-  const moreContacts = async () => setContacts(await chooseMoreContacts());
+  const fromAllContacts = async () => {
+    const c = await pickPhoneContact();
+    if (c?.name) pickContact(c);
+  };
 
   const q = query.trim();
   const recent = useMemo(() => {
@@ -115,7 +118,7 @@ export function CustomerStep({
       {access === 'undetermined' &&
         row('ask', t('Search your phone contacts'), t('To find your customers faster.'), askContacts, '📇')}
       {access === 'limited' &&
-        row('more', t('Choose more contacts'), t('You shared only some contacts with the app.'), moreContacts, '📇')}
+        row('more', t('Pick from all contacts'), t('Opens your iPhone contact list.'), fromAllContacts, '📇')}
       {access === 'denied' &&
         row('settings', t('Allow contacts in Settings'), t('To find your customers faster.'), () => Linking.openSettings(), '📇')}
 

@@ -194,7 +194,7 @@ export default function JobScreen() {
         <View style={styles.summary}>
           <Text style={[styles.client, { color: colors.text }]} numberOfLines={1}>
             {item.client_name || t('No customer')}
-            {item.kind !== 'task' ? ` · ${money(Number(item.total))}` : ''}
+            {item.kind !== 'task' || Number(item.total) > 0 ? ` · ${money(Number(item.total))}` : ''}
           </Text>
           <Text style={[styles.status, { color: statusColor }]}>{statusText}</Text>
         </View>
@@ -206,6 +206,30 @@ export default function JobScreen() {
             <Text style={[styles.cardLabel, { color: colors.muted }]}>{t('WHAT')}</Text>
             <Text style={[styles.body, { color: colors.text }]}>{item.title || '—'}</Text>
           </View>
+          {item.lines.length > 0 && (
+            <View style={[styles.card, { backgroundColor: colors.card }]}>
+              <Text style={[styles.cardLabel, { color: colors.muted }]}>{t('PRICE (FROM THE ESTIMATE)')}</Text>
+              {item.lines.map((l, i) => (
+                <View key={i} style={styles.priceRow}>
+                  <Text style={[styles.body, { color: colors.text, flex: 1 }]}>
+                    {l.text}
+                    {Number(l.qty ?? 1) !== 1 ? ` × ${l.qty}` : ''}
+                  </Text>
+                  <Text style={[styles.body, { color: colors.text }]}>{money(Number(l.qty ?? 1) * Number(l.price ?? 0))}</Text>
+                </View>
+              ))}
+              {Number(item.tax) > 0 && (
+                <View style={styles.priceRow}>
+                  <Text style={[styles.small, { color: colors.muted, flex: 1 }]}>{t('Sales tax')}</Text>
+                  <Text style={[styles.small, { color: colors.muted }]}>{money(Number(item.tax))}</Text>
+                </View>
+              )}
+              <View style={styles.priceRow}>
+                <Text style={[styles.body, { color: colors.text, flex: 1, fontWeight: '800' }]}>{t('Total')}</Text>
+                <Text style={[styles.body, { color: colors.text, fontWeight: '800' }]}>{money(Number(item.total))}</Text>
+              </View>
+            </View>
+          )}
           <View style={[styles.card, { backgroundColor: colors.card }]}>
             <Text style={[styles.cardLabel, { color: colors.muted }]}>{t('WHEN')}</Text>
             <Text style={[styles.body, { color: colors.text }]}>
@@ -292,6 +316,7 @@ const styles = StyleSheet.create({
   cardLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.6 },
   body: { fontSize: 17 },
   small: { fontSize: 14 },
+  priceRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   error: { fontSize: 15, fontWeight: '600', textAlign: 'center' },
   actions: { paddingHorizontal: 16, paddingTop: 12, gap: 10 },

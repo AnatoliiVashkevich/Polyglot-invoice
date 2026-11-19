@@ -56,3 +56,16 @@ def test_delete_jobs_but_never_a_paid_invoice(api):
     api.patch(f"/api/items/{inv['id']}", json={"status": "requested"})
     assert api.delete(f"/api/items/{inv['id']}").status_code == 204
     assert client_as(OTHER).delete(f"/api/items/{task['id']}").status_code == 404
+
+
+def test_task_from_an_estimate_keeps_its_prices_for_the_invoice(api):
+    """Estimate -> task -> invoice: the prices travel along (the owner lost them on the iPhone)."""
+    cid = new_client(api)["id"]
+    lines = LINES + [{"text": "Deck screws", "qty": 2, "price": 45, "kind": "material"}]
+    est = api.post("/api/items", json={"kind": "estimate", "client_id": cid, "lines": lines}).json()
+    task = api.post("/api/items", json={"kind": "task", "client_id": cid, "title": "Replace deck boards",
+                                        "from_item_id": est["id"]}).json()
+    assert [l["text"] for l in task["lines"]] == [l["text"] for l in est["lines"]]
+    assert task["total"] == est["total"] == 1890
+    plain = api.post("/api/items", json={"kind": "task", "title": "Pick up tile"}).json()
+    assert plain.get("lines", []) == [] and plain.get("total", 0) == 0

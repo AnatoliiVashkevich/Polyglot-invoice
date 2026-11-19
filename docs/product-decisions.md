@@ -237,11 +237,30 @@ the website address (polyglotinvoice.com) and a USPTO trademark search.
   without asking "Did you send it?". The status can still be changed by hand.
 - **Day list rows:** a long, multi-line description is shortened to one line; the amount and the status always show.
 
+## 6f. Details agreed while testing step 5 (2026-11-19)
+
+- **Every button has a frame** (border), so it clearly looks like a button. "＋ Another line" is an outlined button.
+- **Text fields have a visible frame** (the work description too), so they clearly look like fields.
+- **Estimate wording:** "What work will you do?" and "Write the work and materials you offer, with prices…".
+- **Estimates can have materials:** each line on an estimate has a Work / Materials choice (the tax on materials works).
+- **Prices travel along the job:** a task scheduled from an estimate keeps the estimate's lines and total (shown on the
+  task card as "Price (from the estimate)"). "Job done → Create invoice" then fills everything in and opens Review
+  right away; the user can still change anything.
+- **"Choose more contacts"** became **"Pick from all contacts"**: it opens the iPhone's own contact list (no extra
+  permission), and tapping a person picks them.
+
 ## 13. Database (decided 2026-11-19)
 
 - The new app **reuses the crm-solo Supabase project and its keys**. Its old tables hold only test data and are
   replaced by the new, simpler schema (old test logins may be deleted too).
 
-## Still to decide
+## Still to decide (raised by the owner while testing step 5, 2026-11-19; remind the owner)
 
-Nothing open. Next step: a one-page screen map for approval, then development.
+1. **Easier work + price entry.** Ideas: one big field where the user writes the work and prices in their own words and
+   we split it into lines ("door installation 300", Next line, "2 double swing doors installation and adjustment 700"),
+   or a "type a line, tap Next line" flow. Discuss now and again when the AI is connected (step 8, voice): these
+   screens will be reworked then anyway.
+2. **Repeating tasks:** every week / month / year / custom period, and "repeat until" a date. The logic is still to
+   discuss (what happens to the next one when one is done, editing one or all, reminders, invoices for each).
+3. **Keep closed jobs as notes / history:** done tasks, sent estimates and paid invoices stay visible as a record.
+4. **Notes:** a task without a customer may really be a note; maybe add plain notes.

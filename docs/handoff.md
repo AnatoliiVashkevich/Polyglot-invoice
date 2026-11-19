@@ -3,6 +3,11 @@
 Last updated: 2026-11-19. Update this file at the end of every session.
 
 ## Status
+- **Step 5 is built and being tested (2026-11-19).** First feedback is fixed (product-decisions.md §6f): button and
+  field frames, estimate wording and materials, prices kept from estimate → task → invoice, "Pick from all contacts".
+  **Open ideas to discuss with the owner** are in product-decisions.md "Still to decide" (easier price entry, repeating
+  tasks, history, notes). Remind the owner about them.
+- If Metro says a package "could not be resolved" after a new install: stop Expo and run `npx expo start --clear`.
 - **Steps 0–4 are done and tested on the owner's iPhone (2026-11-19).** The owner loves the app so far.
 - Step 4 built: server `invoice_pdf.py` + `doc_i18n.py` (PDF labels in 5 languages; Cyrillic via Arial on Windows —
   hosting will need DejaVu or PDF_FONT), `GET /api/items/{id}/pdf?lang=`; app `src/app/invoice/[id].tsx` (PDF preview

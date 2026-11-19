@@ -108,7 +108,8 @@ export default function NewInvoiceScreen() {
             setClient({ id: cl.id, name: cl.name, phone: cl.phone, email: cl.email, address: cl.address, preferred_language: cl.preferred_language });
             setOriginal(cl);
           }
-          if (source.kind === 'estimate' && source.lines.length) {
+          if (source.lines.length) {
+            // an estimate, or a task scheduled from one: everything is known, straight to Review
             setWork(source.lines.map((l) => ({ key: newKey(), text: l.text, qty: String(l.qty ?? 1), price: String(l.price ?? ''), kind: l.kind ?? 'work' })));
             setTaxOn(Number(source.tax_rate) > 0 || Number(s.tax_rate) === 0);
             setStep(cl ? 5 : 0);
@@ -308,7 +309,7 @@ export default function NewInvoiceScreen() {
   const title = [
     t('Who is it for?'),
     client?.id ? t('Check {name}’s info', { name: firstName(client.name) }) : t('New client'),
-    t('What did you do?'),
+    isEstimate ? t('What work will you do?') : t('What did you do?'),
     t('Any expenses?'),
     isEstimate ? t('Date of the estimate') : t('Date'),
     t('Review'),
@@ -316,7 +317,9 @@ export default function NewInvoiceScreen() {
   const subtitle = [
     '',
     '',
-    t('Write what you did and the price. Use as many lines as you need: one fixed price for the whole job, or a line for each part. Charging by the hour? Put the hours in Qty.'),
+    isEstimate
+      ? t('Write the work and materials you offer, with prices. One fixed price for the whole job, or a line for each part. By the hour? Put the hours in Qty.')
+      : t('Write what you did and the price. Use as many lines as you need: one fixed price for the whole job, or a line for each part. Charging by the hour? Put the hours in Qty.'),
     t('Materials you bought for this job, with the price. No expenses? Tap Skip at the bottom.'),
     '',
     t('Tap anything to change it.'),
@@ -388,8 +391,14 @@ export default function NewInvoiceScreen() {
                   placeholderTextColor={colors.faint}
                   autoFocus={i === 0 && !w.text}
                   multiline
-                  style={[styles.lineText, { color: colors.text }]}
+                  style={[styles.lineText, styles.lineBox, { color: colors.text, borderColor: colors.line, backgroundColor: colors.bg }]}
                 />
+                {(isEstimate || w.kind === 'material') && (
+                  <View style={styles.chips}>
+                    <Chip label={t('Work')} active={w.kind !== 'material'} onPress={() => setW(w.key, { kind: 'work' })} />
+                    <Chip label={t('Materials')} active={w.kind === 'material'} onPress={() => setW(w.key, { kind: 'material' })} />
+                  </View>
+                )}
                 <View style={styles.lineRow}>
                   <Text style={[styles.small, { color: colors.muted }]}>{t('Qty / hours')}</Text>
                   <TextInput
@@ -416,7 +425,7 @@ export default function NewInvoiceScreen() {
                 </View>
               </View>
             ))}
-            <BigButton kind="quiet" title={t('＋ Another line')} onPress={() => setWork((rows) => [...rows, emptyWork()])} />
+            <BigButton kind="second" title={t('＋ Another line')} onPress={() => setWork((rows) => [...rows, emptyWork()])} />
             {workLines.length > 0 && !workLines.some((l) => Number.isNaN(l.price) || Number.isNaN(l.qty)) && (
               <Text style={[styles.total, { color: colors.text }]}>
                 {t('Total')} {money(totals(workLines).total)}
@@ -435,7 +444,7 @@ export default function NewInvoiceScreen() {
                     onChangeText={(v) => setE(e.key, { description: v })}
                     placeholder={t('Materials')}
                     placeholderTextColor={colors.faint}
-                    style={[styles.lineText, { color: colors.text, flex: 1 }]}
+                    style={[styles.lineText, styles.lineBox, { color: colors.text, flex: 1, borderColor: colors.line, backgroundColor: colors.bg }]}
                   />
                   <Text style={[styles.small, { color: colors.muted }]}>$</Text>
                   <TextInput
@@ -657,6 +666,7 @@ const styles = StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   lineCard: { borderRadius: radius.md, padding: 12, gap: 10 },
   lineText: { fontSize: 17, minHeight: 28 },
+  lineBox: { minHeight: 48, borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: 10, paddingTop: 12, paddingBottom: 12 },
   lineRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   small: { fontSize: 14 },
   qty: { width: 54, height: 40, borderWidth: 1, borderRadius: radius.sm, textAlign: 'center', fontSize: 17 },

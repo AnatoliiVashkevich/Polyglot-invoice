@@ -46,7 +46,7 @@ export function BigButton({
           ? { backgroundColor: colors.accent, opacity: disabled ? 0.4 : pressed || busy ? 0.85 : 1 }
           : second
             ? { borderWidth: 2, borderColor: colors.accent, backgroundColor: pressed ? colors.line : colors.card }
-            : { backgroundColor: pressed ? colors.line : 'transparent' },
+            : { borderWidth: 1, borderColor: colors.line, backgroundColor: pressed ? colors.line : colors.card },
       ]}>
       {busy ? (
         <ActivityIndicator color={main ? colors.onAccent : colors.text} />

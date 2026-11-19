@@ -287,6 +287,12 @@ def create_item(body: ItemIn, uid: str = Depends(auth.current_user)):
         raise HTTPException(400, "Please choose a customer.")
     _check_links(data, uid)
     data.setdefault("date", db.today_local())
+    source = db.get_row("items", data["from_item_id"], uid) if data.get("from_item_id") else None
+    # a task scheduled from an estimate keeps the estimate's work and prices, so the invoice gets them later
+    if kind == "task" and source and source["kind"] == "estimate" and not data.get("lines"):
+        data["lines"] = source.get("lines") or []
+        data.setdefault("tax_rate", float(source.get("tax_rate") or 0))
+        data.setdefault("tax_applies_to", source.get("tax_applies_to") or "materials")
     if kind != "task":
         data["lines"] = data.get("lines", []) + [
             {"text": e.description.strip() or "Materials", "qty": 1, "price": e.amount, "kind": "material"}
@@ -316,7 +322,6 @@ def create_item(body: ItemIn, uid: str = Depends(auth.current_user)):
                                        "category": "Materials", "client_id": data.get("client_id"),
                                        "item_id": row["id"] if e.add_to_invoice and kind != "task" else None}, uid)
     # "Job done -> Create invoice": the task it was made from is done now
-    source = db.get_row("items", data["from_item_id"], uid) if data.get("from_item_id") else None
     if source and source["kind"] == "task" and kind != "task" and source["status"] != "done":
         db.update_row("items", source["id"], {"status": "done"}, uid)
     return _with_client_names([row], uid)[0]
