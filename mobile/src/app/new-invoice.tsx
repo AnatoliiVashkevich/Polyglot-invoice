@@ -1,9 +1,11 @@
 // NEW INVOICE: a questionnaire, one question per screen (product-decisions.md §6):
 //   1 Customer · 2 Check info · 3 Work + prices · 4 Expenses · 5 Date · 6 Review → Create
 // Free plan: plain fields. (Voice fills these same steps in build step 7.)
+// EDIT: /new-invoice?id=… opens the same screens filled in, on Review ("Tap anything to change it"); the
+// Expenses step is skipped (expenses were saved when the invoice was created; their lines stay as lines).
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -25,13 +27,14 @@ import { LANGUAGES, t, type Lang } from '@/i18n';
 import { api, ApiError } from '@/lib/api';
 import { fetchClients, fetchNextNumber, fetchSettings, saveClient, type Client, type ClientDraft, type Settings } from '@/lib/clients';
 import { formatDay, isoDate, parseIso, todayIso } from '@/lib/dates';
-import { dueDate, lineCents, parseAmount, totals, type Line } from '@/lib/invoice-math';
+import { dueDate, lineCents, parseAmount, totals, type Line, type LineKind } from '@/lib/invoice-math';
+import { getItem, patchItem, sendInvoice, type ServerItem } from '@/lib/items';
 import { money } from '@/lib/money';
 import { radius, useColors } from '@/theme';
 
-type WorkRow = { key: string; text: string; qty: string; price: string };
+type WorkRow = { key: string; text: string; qty: string; price: string; kind: LineKind };
 type ExpenseRow = { key: string; description: string; amount: string; addToInvoice: boolean };
-type DueDays = 0 | 7 | 15 | 30;
+type DueDays = number; // 0 = Now; the chips offer 0 / 7 / 15 / 30
 
 const STEPS = ['Customer', 'Check info', 'Work + prices', 'Expenses', 'Date', 'Review'] as const;
 const DUE_CHOICES: { days: DueDays; label: string }[] = [
@@ -43,7 +46,8 @@ const DUE_CHOICES: { days: DueDays; label: string }[] = [
 
 let keySeq = 0;
 const newKey = () => `k${++keySeq}`;
-const emptyWork = (): WorkRow => ({ key: newKey(), text: '', qty: '1', price: '' });
+const emptyWork = (): WorkRow => ({ key: newKey(), text: '', qty: '1', price: '', kind: 'work' });
+const daysBetween = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
 const emptyExpense = (): ExpenseRow => ({ key: newKey(), description: '', amount: '', addToInvoice: true });
 // language names in the user's screen language (the chips show each language in its own name)
 const LANGUAGE_NAMES: Record<Lang, string> = { en: 'English', es: 'Spanish', pt: 'Portuguese', ru: 'Russian', uk: 'Ukrainian' };
@@ -52,6 +56,8 @@ const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? '';
 export default function NewInvoiceScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { id: editId } = useLocalSearchParams<{ id?: string }>();
+  const [editing, setEditing] = useState<ServerItem | null>(null); // the invoice being edited
 
   // loaded once
   const [clients, setClients] = useState<Client[] | null>(null);
@@ -73,22 +79,44 @@ export default function NewInvoiceScreen() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    Promise.all([fetchClients(), fetchSettings(), fetchNextNumber('invoice')])
-      .then(([c, s, n]) => {
+    Promise.all([fetchClients(), fetchSettings(), editId ? getItem(editId) : fetchNextNumber('invoice')])
+      .then(([c, s, third]) => {
         setClients(c);
         setSettings(s);
-        setDueDays(s.due_days);
-        setNumber(n);
+        if (typeof third === 'string') {
+          setDueDays(s.due_days);
+          setNumber(third);
+          return;
+        }
+        // edit: fill every answer from the invoice
+        const it = third;
+        const cl = c.find((x) => x.id === it.client_id);
+        if (cl) {
+          setClient({ id: cl.id, name: cl.name, phone: cl.phone, email: cl.email, address: cl.address, preferred_language: cl.preferred_language });
+          setOriginal(cl);
+        }
+        setWork(
+          it.lines.length
+            ? it.lines.map((l) => ({ key: newKey(), text: l.text, qty: String(l.qty ?? 1), price: String(l.price ?? ''), kind: l.kind ?? 'work' }))
+            : [emptyWork()],
+        );
+        setExpenses([]);
+        setDate(it.date);
+        setDueDays(it.due_date ? Math.max(0, daysBetween(it.date, it.due_date)) : 0);
+        setNumber(it.number);
+        setTaxOn(Number(it.tax_rate) > 0);
+        setEditing(it);
+        setStep(5);
       })
       .catch((e) => setLoadError(e instanceof Error ? e.message : 'Could not load.'));
-  }, []);
+  }, [editId]);
 
   // ----- the lines as numbers -----
   const workLines: Line[] = useMemo(
     () =>
       work
         .filter((w) => w.text.trim() || w.price.trim())
-        .map((w) => ({ text: w.text.trim(), qty: w.qty.trim() ? parseAmount(w.qty) : 1, price: parseAmount(w.price), kind: 'work' })),
+        .map((w) => ({ text: w.text.trim(), qty: w.qty.trim() ? parseAmount(w.qty) : 1, price: parseAmount(w.price), kind: w.kind })),
     [work],
   );
   const expenseRows = useMemo(
@@ -104,9 +132,11 @@ export default function NewInvoiceScreen() {
     ],
     [workLines, expenseRows],
   );
-  const taxRate = Number(settings?.tax_rate ?? 0);
+  // an invoice keeps the tax rate it was made with; a new one takes it from Settings
+  const taxRate = editing && Number(editing.tax_rate) > 0 ? Number(editing.tax_rate) : Number(settings?.tax_rate ?? 0);
+  const taxAppliesTo = (editing ? editing.tax_applies_to : settings?.tax_applies_to) ?? 'materials';
   const docLang: Lang = settings?.doc_language ?? 'en';
-  const sum = totals(invoiceLines, taxOn ? taxRate : 0, settings?.tax_applies_to);
+  const sum = totals(invoiceLines, taxOn ? taxRate : 0, taxAppliesTo);
 
   // ----- moving between steps -----
   const go = (to: number) => {
@@ -117,13 +147,18 @@ export default function NewInvoiceScreen() {
   const close = () => {
     const started = !!client || work.some((w) => w.text || w.price);
     if (!started) return router.back();
-    Alert.alert(t('Discard this invoice?'), t('What you entered will be lost.'), [
+    Alert.alert(editing ? t('Discard your changes?') : t('Discard this invoice?'), t('What you entered will be lost.'), [
       { text: t('Keep editing'), style: 'cancel' },
       { text: t('Discard'), style: 'destructive', onPress: () => router.back() },
     ]);
   };
 
-  const back = () => (step === 0 ? close() : go(step === 2 && !client ? 0 : step - 1));
+  const back = () => {
+    if (step === 0 || (editing && step === 5)) return close();
+    if (step === 2 && !client) return go(0);
+    if (editing && step === 4) return go(2); // no Expenses step when editing
+    go(step - 1);
+  };
 
   const next = async () => {
     setError('');
@@ -151,6 +186,7 @@ export default function NewInvoiceScreen() {
     }
     if (step === 3 && expenseRows.some((e) => Number.isNaN(e.value) || e.value < 0))
       return setError(t('Please check the amounts: numbers only, like 64.50.'));
+    if (editing && (step === 2 || step === 4)) return go(5); // editing: back to Review
     go(step + 1);
   };
 
@@ -159,7 +195,7 @@ export default function NewInvoiceScreen() {
     setBusy(true);
     setError('');
     try {
-      await api('/api/items', {
+      const created = await api<ServerItem>('/api/items', {
         method: 'POST',
         body: {
           kind: 'invoice',
@@ -175,7 +211,53 @@ export default function NewInvoiceScreen() {
         },
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.dismissTo({ pathname: '/', params: { day: date, at: String(Date.now()) } });
+      // "After Create: the PDF opens with a big Send button"
+      router.replace({ pathname: '/invoice/[id]', params: { id: created.id } });
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409 && typeof e.detail?.next === 'string') {
+        setNumber(e.detail.next);
+        setError(t('{used} is already used. Changed to {next}.', { used: number.trim(), next: e.detail.next }));
+      } else {
+        setError(t(e instanceof Error ? e.message : 'Something went wrong.'));
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const save = async () => {
+    if (!editing || !client?.id || busy) return;
+    if (workLines.length === 0) return setError(t('Please add the work and its price.'));
+    setBusy(true);
+    setError('');
+    try {
+      const updated = await patchItem(editing.id, {
+        client_id: client.id,
+        date,
+        due_date: dueDate(date, dueDays),
+        ...(number.trim() !== editing.number ? { number: number.trim() } : {}),
+        title: workLines.filter((l) => l.kind === 'work').map((l) => l.text).join(', ').slice(0, 200),
+        address: client.address,
+        lines: workLines,
+        tax_rate: taxOn ? taxRate : 0,
+        tax_applies_to: taxAppliesTo,
+      });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (updated.status !== 'requested') return router.back();
+      // already sent once: offer to send the corrected invoice (product-decisions.md §6)
+      Alert.alert(t('Send the updated invoice to the customer?'), '', [
+        { text: t('Not now'), style: 'cancel', onPress: () => router.back() },
+        {
+          text: t('Send'),
+          onPress: async () => {
+            try {
+              await sendInvoice(updated, settings?.doc_language ?? 'en');
+            } finally {
+              router.back();
+            }
+          },
+        },
+      ]);
     } catch (e) {
       if (e instanceof ApiError && e.status === 409 && typeof e.detail?.next === 'string') {
         setNumber(e.detail.next);
@@ -393,9 +475,9 @@ export default function NewInvoiceScreen() {
                 <Text style={[styles.reviewText, { color: colors.text, flex: 1 }]}>
                   {t('Sales tax {rate}% ({what})', {
                     rate: taxRate,
-                    what: settings.tax_applies_to === 'everything' ? t('everything') : t('materials'),
+                    what: taxAppliesTo === 'everything' ? t('everything') : t('materials'),
                   })}{' '}
-                  {money(totals(invoiceLines, taxRate, settings.tax_applies_to).tax)}
+                  {money(totals(invoiceLines, taxRate, taxAppliesTo).tax)}
                 </Text>
                 <Switch value={taxOn} onValueChange={setTaxOn} trackColor={{ true: colors.accent }} />
               </View>
@@ -429,7 +511,11 @@ export default function NewInvoiceScreen() {
 
   const bottom =
     step === 0 ? null : step === 5 ? (
-      <BigButton title={t('Create invoice')} onPress={create} busy={busy} />
+      editing ? (
+        <BigButton title={t('Save changes')} onPress={save} busy={busy} />
+      ) : (
+        <BigButton title={t('Create invoice')} onPress={create} busy={busy} />
+      )
     ) : step === 3 && expenseRows.length === 0 ? (
       <BigButton kind="quiet" title={t('Skip')} onPress={next} />
     ) : (
@@ -440,10 +526,10 @@ export default function NewInvoiceScreen() {
     <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: colors.bg }}>
       <View style={[styles.top, { paddingTop: insets.top + 4 }]}>
         <Pressable onPress={back} hitSlop={12} accessibilityRole="button" accessibilityLabel={step === 0 ? t('Close') : t('Back')}>
-          <Text style={[styles.topBtn, { color: colors.accent }]}>{step === 0 ? t('Cancel') : `‹ ${t('Back')}`}</Text>
+          <Text style={[styles.topBtn, { color: colors.accent }]}>{step === 0 || (editing && step === 5) ? t('Cancel') : `‹ ${t('Back')}`}</Text>
         </Pressable>
         <Text style={[styles.topTitle, { color: colors.muted }]}>
-          {t('New invoice')} · {step + 1}/{STEPS.length}
+          {editing ? t('Edit invoice') : `${t('New invoice')} · ${step + 1}/${STEPS.length}`}
         </Text>
         <View style={{ width: 64 }} />
       </View>

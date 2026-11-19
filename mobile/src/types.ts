@@ -20,6 +20,7 @@ export interface Item {
   title: string; // short description of the work
   number?: string; // INV-0012 / EST-0004
   amount?: number; // total in dollars (estimates, invoices)
+  dueDate?: string; // invoices: YYYY-MM-DD (past it and still Requested = overdue)
 }
 
 export type Filter = 'all' | 'task' | 'estimate' | 'invoice' | 'unpaid';

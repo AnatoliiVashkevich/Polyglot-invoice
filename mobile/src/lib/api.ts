@@ -46,6 +46,9 @@ export async function saveSession(s: Session | null) {
   else await SecureStore.deleteItemAsync(KEY);
 }
 
+/** The current access token (for downloads that can't go through api(), like the PDF file). */
+export const accessToken = () => session?.access_token ?? '';
+
 /** The auth provider listens here, so an expired session sends the user back to the sign-in screen. */
 export function setSignedOutHandler(fn: (() => void) | null) {
   onSignedOut = fn;

@@ -257,3 +257,23 @@ def test_expenses_are_saved_and_added_to_the_invoice_when_asked(api, fake):
     assert inv["total"] == 464.5 and inv["lines"][-1] == {"text": "Materials", "qty": 1, "price": 64.5, "kind": "material"}
     saved = sorted(fake.tables["expenses"].values(), key=lambda e: e["amount"])
     assert [(e["amount"], e["item_id"], e["client_id"]) for e in saved] == [(12, None, cid), (64.5, inv["id"], cid)]
+
+
+# ---------- step 4: the PDF ----------
+def test_invoice_pdf_in_the_document_language(api):
+    api.patch("/api/settings", json={"name": "Fix-It Pro", "doc_language": "es", "tax_rate": 7})
+    inv = new_invoice(api, new_client(api)["id"])
+    r = api.get(f"/api/items/{inv['id']}/pdf")
+    assert r.status_code == 200 and r.headers["content-type"] == "application/pdf"
+    assert r.content.startswith(b"%PDF") and 'filename="INV-0001-ES.pdf"' in r.headers["content-disposition"]
+    r = api.get(f"/api/items/{inv['id']}/pdf", params={"lang": "ru"})
+    assert 'INV-0001-RU.pdf' in r.headers["content-disposition"]
+
+
+def test_paid_invoice_pdf_and_no_pdf_for_tasks(api):
+    inv = new_invoice(api, new_client(api)["id"])
+    api.patch(f"/api/items/{inv['id']}", json={"status": "paid", "payment_method": "Zelle"})
+    assert api.get(f"/api/items/{inv['id']}/pdf").status_code == 200
+    task = api.post("/api/items", json={"kind": "task", "title": "Look at the deck"}).json()
+    assert api.get(f"/api/items/{task['id']}/pdf").status_code == 400
+    assert client_as(OTHER).get(f"/api/items/{inv['id']}/pdf").status_code == 404

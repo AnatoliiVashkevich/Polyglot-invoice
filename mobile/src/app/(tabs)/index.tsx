@@ -1,17 +1,19 @@
 // HOME: the month calendar (works like the iPhone calendar) with the selected day's list under it,
 // and the orange ＋ for creating. The items come from the server: the month on screen and one month either side.
 import * as Haptics from 'expo-haptics';
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { DayRow } from '@/components/calendar/day-list';
+import { DayRow, type RowAction } from '@/components/calendar/day-list';
 import { FilterChips } from '@/components/calendar/filter-chips';
 import { MonthPager, type MonthPagerHandle } from '@/components/calendar/month-pager';
 import { CreateButton } from '@/components/create-button';
+import { MarkPaidSheet } from '@/components/mark-paid-sheet';
+import { fetchSettings } from '@/lib/clients';
 import { addMonths, formatDay, formatMonth, monthGrid, monthOf, todayIso, weekdayNames } from '@/lib/dates';
-import { fetchItems } from '@/lib/items';
+import { fetchItems, getItem, sendInvoice } from '@/lib/items';
 import { locale, t } from '@/i18n';
 import { kindColors, radius, useColors } from '@/theme';
 import type { Filter, Item } from '@/types';
@@ -85,8 +87,30 @@ export default function CalendarScreen() {
   }, []);
 
   const openItem = useCallback((item: Item) => {
-    Alert.alert(item.clientName || t('No customer'), t('The job card is built in a later step.'));
+    if (item.kind === 'invoice') router.push({ pathname: '/invoice/[id]', params: { id: item.id } });
+    else Alert.alert(item.clientName || t('No customer'), t('The job card is built in a later step.'));
   }, []);
+
+  // swipe actions on invoices: Send (Created / Requested) and Mark Paid (Requested)
+  const [paying, setPaying] = useState<Item | null>(null);
+  const send = useCallback(
+    async (item: Item) => {
+      try {
+        const [full, settings] = await Promise.all([getItem(item.id), fetchSettings()]);
+        await sendInvoice(full, settings.doc_language);
+        load(month);
+      } catch (e) {
+        Alert.alert(t('Could not send'), t(e instanceof Error ? e.message : 'Something went wrong.'));
+      }
+    },
+    [load, month],
+  );
+  const actionsFor = (item: Item): RowAction[] => {
+    if (item.kind !== 'invoice' || item.status === 'paid') return [];
+    const sendAction = { label: t('Send'), color: kindColors.task, onPress: () => send(item) };
+    if (item.status === 'requested') return [{ label: t('Mark Paid'), color: kindColors.invoice, onPress: () => setPaying(item) }, sendAction];
+    return [sendAction];
+  };
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.bg, paddingTop: insets.top + 6 }]}>
@@ -132,7 +156,7 @@ export default function CalendarScreen() {
       <FlatList
         data={dayItems}
         keyExtractor={(it) => it.id}
-        renderItem={({ item }) => <DayRow item={item} onPress={openItem} />}
+        renderItem={({ item }) => <DayRow item={item} onPress={openItem} actions={actionsFor(item)} />}
         style={[styles.list, { borderTopColor: colors.line }]}
         contentContainerStyle={{ padding: 12, gap: 8, paddingBottom: insets.bottom + 140 }}
         ListHeaderComponent={
@@ -149,6 +173,15 @@ export default function CalendarScreen() {
       />
 
       <CreateButton />
+
+      <MarkPaidSheet
+        item={paying ? { id: paying.id, total: paying.amount ?? 0, number: paying.number, client_name: paying.clientName } : null}
+        onClose={() => setPaying(null)}
+        onPaid={() => {
+          setPaying(null);
+          load(month);
+        }}
+      />
     </View>
   );
 }

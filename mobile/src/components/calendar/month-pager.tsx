@@ -1,11 +1,11 @@
 // The month calendar: swipe left / right between months (a native paging list), tap a day to select it.
 // Each day shows up to 2 colored bars with the customer's first name, then "+n".
 import * as Haptics from 'expo-haptics';
-import { forwardRef, memo, useCallback, useImperativeHandle, useMemo, useRef } from 'react';
+import { forwardRef, memo, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
-import { addMonths, monthGrid, monthOf, todayIso } from '@/lib/dates';
-import { itemColorKey, kindColors, radius, useColors, type Colors } from '@/theme';
+import { addMonths, monthGrid, monthOf, todayIso, weeksIn } from '@/lib/dates';
+import { isOverdue, itemColorKey, kindColors, radius, useColors, type Colors } from '@/theme';
 import type { Item } from '@/types';
 
 const MONTHS_EACH_SIDE = 60; // 5 years back and ahead
@@ -34,12 +34,15 @@ export const MonthPager = forwardRef<MonthPagerHandle, Props>(function MonthPage
     () => Array.from({ length: MONTHS_EACH_SIDE * 2 + 1 }, (_, i) => addMonths(baseMonth, i - MONTHS_EACH_SIDE)),
     [baseMonth],
   );
+  // the grid is as tall as the month on screen needs (4–6 weeks), so there is no extra row to scroll to
+  const [visibleMonth, setVisibleMonth] = useState(baseMonth);
 
   useImperativeHandle(ref, () => ({
     showMonth(monthKey, animated = true) {
       const index = months.indexOf(monthKey);
       if (index < 0) return;
       listRef.current?.scrollToIndex({ index, animated });
+      setVisibleMonth(monthKey);
       onMonthChange(monthKey);
     },
   }));
@@ -47,7 +50,10 @@ export const MonthPager = forwardRef<MonthPagerHandle, Props>(function MonthPage
   // a swipe finished: which month is on screen now
   const onSwipeEnd = (x: number) => {
     const month = months[Math.round(x / width)];
-    if (month) onMonthChange(month);
+    if (month) {
+      setVisibleMonth(month);
+      onMonthChange(month);
+    }
     Haptics.selectionAsync();
   };
 
@@ -80,7 +86,7 @@ export const MonthPager = forwardRef<MonthPagerHandle, Props>(function MonthPage
       initialNumToRender={1}
       maxToRenderPerBatch={2}
       extraData={[itemsByDay, selectedDay]}
-      style={{ flexGrow: 0, height: CELL_HEIGHT * 6 }}
+      style={{ flexGrow: 0, height: CELL_HEIGHT * weeksIn(visibleMonth) }}
     />
   );
 });
@@ -95,7 +101,7 @@ type PageProps = {
 
 const MonthPage = memo(function MonthPage({ monthKey, width, itemsByDay, selectedDay, onSelectDay }: PageProps) {
   const colors = useColors();
-  const days = useMemo(() => monthGrid(monthKey), [monthKey]);
+  const days = useMemo(() => monthGrid(monthKey).slice(0, weeksIn(monthKey) * 7), [monthKey]);
   const today = todayIso();
   return (
     <View style={[styles.grid, { width }]}>
@@ -158,7 +164,7 @@ function DayCell({ day, items, inMonth, isToday, isSelected, onPress, colors }: 
             key={item.id}
             style={[styles.bar, { backgroundColor: kindColors[itemColorKey(item)], opacity: inMonth ? (done ? 0.45 : 1) : 0.35 }]}>
             <Text style={styles.barText} numberOfLines={1}>
-              {done && item.kind === 'invoice' ? '✓ ' : ''}
+              {done && item.kind === 'invoice' ? '✓ ' : isOverdue(item) ? '! ' : ''}
               {firstName(item)}
             </Text>
           </View>

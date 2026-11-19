@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field, field_validator
 
 import auth
 import database as db
+import invoice_pdf
 from money import totals
 from numbering import next_free, next_number
 
@@ -353,6 +354,20 @@ def patch_item(item_id: str, body: ItemFields, uid: str = Depends(auth.current_u
     data["updated_at"] = datetime.now(timezone.utc).isoformat()
     row = db.update_row("items", item_id, data, uid)
     return _with_client_names([row], uid)[0]
+
+
+@app.get("/api/items/{item_id}/pdf")
+def item_pdf(item_id: str, lang: Lang | None = None, uid: str = Depends(auth.current_user)):
+    """The invoice / estimate as a PDF, in the document language (Settings) unless ?lang= is given."""
+    item = _item_or_404(item_id, uid)
+    if item["kind"] == "task":
+        raise HTTPException(400, "A task has no PDF.")
+    business = _business(uid)
+    client = db.get_row("clients", item["client_id"], uid) if item.get("client_id") else None
+    lang = lang or business.get("doc_language") or "en"
+    pdf = invoice_pdf.build_pdf(item, client or {}, business, lang)
+    name = invoice_pdf.file_name(item, lang)
+    return Response(pdf, media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="{name}"'})
 
 
 @app.delete("/api/items/{item_id}", status_code=204)

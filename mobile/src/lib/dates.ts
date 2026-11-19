@@ -38,6 +38,13 @@ export function monthGrid(monthKey: string): string[] {
   });
 }
 
+/** How many week rows a month needs (4, 5 or 6), like the iPhone calendar: no extra row of next month. */
+export function weeksIn(monthKey: string): number {
+  const first = parseIso(`${monthKey}-01`);
+  const daysInMonth = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+  return Math.ceil((first.getDay() + daysInMonth) / 7);
+}
+
 export function formatMonth(monthKey: string, locale: string) {
   return parseIso(`${monthKey}-01`).toLocaleDateString(locale, { month: 'long' });
 }
