@@ -3,6 +3,7 @@
 // No prices and no duration: prices are added when the job becomes an invoice.
 // /new-task?from=<estimate id> ("Schedule the job") starts filled in, at Date and time.
 // /new-task?id=<task id> edits a task (the same screens, filled in).
+// /new-task?client=<client id> (＋ on a client's page) starts with that client, at "What needs to be done?".
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -34,7 +35,7 @@ const hhmm = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.g
 export default function NewTaskScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { id: editId, from } = useLocalSearchParams<{ id?: string; from?: string }>();
+  const { id: editId, from, client: clientParam } = useLocalSearchParams<{ id?: string; from?: string; client?: string }>();
 
   const [clients, setClients] = useState<Client[] | null>(null);
   const [loadError, setLoadError] = useState('');
@@ -55,6 +56,11 @@ export default function NewTaskScreen() {
     Promise.all([fetchClients(), source ? getItem(source) : Promise.resolve(null)])
       .then(([c, it]) => {
         setClients(c);
+        const pre = clientParam ? c.find((x) => x.id === clientParam) : undefined;
+        if (pre && !it) {
+          setClient({ id: pre.id, name: pre.name, address: pre.address });
+          setStep(1);
+        }
         if (!it) return;
         const cl = c.find((x) => x.id === it.client_id);
         if (cl) setClient({ id: cl.id, name: cl.name, address: cl.address });
@@ -71,7 +77,7 @@ export default function NewTaskScreen() {
         }
       })
       .catch((e) => setLoadError(e instanceof Error ? e.message : 'Could not load.'));
-  }, [editId, from]);
+  }, [editId, from, clientParam]);
 
   const go = (to: number) => {
     setError('');

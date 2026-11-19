@@ -61,7 +61,7 @@ const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? '';
 export default function NewInvoiceScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ id?: string; kind?: string; from?: string }>();
+  const params = useLocalSearchParams<{ id?: string; kind?: string; from?: string; client?: string }>();
   const editId = params.id;
   const fromId = params.from;
   const [kind, setKind] = useState<'invoice' | 'estimate'>(params.kind === 'estimate' ? 'estimate' : 'invoice');
@@ -101,6 +101,13 @@ export default function NewInvoiceScreen() {
         if (typeof third === 'string') {
           setDueDays(s.due_days);
           setNumber(third);
+          // ＋ on a client's page: that client, starting at "check the customer's info"
+          const pre = params.client ? c.find((x) => x.id === params.client) : undefined;
+          if (pre && !source) {
+            setClient({ id: pre.id, name: pre.name, phone: pre.phone, email: pre.email, address: pre.address, preferred_language: pre.preferred_language });
+            setOriginal(pre);
+            setStep(1);
+          }
           if (!source) return;
           // made from a task or an estimate: fill in what it already knows
           const cl = c.find((x) => x.id === source.client_id);

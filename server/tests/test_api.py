@@ -277,3 +277,27 @@ def test_paid_invoice_pdf_and_no_pdf_for_tasks(api):
     task = api.post("/api/items", json={"kind": "task", "title": "Look at the deck"}).json()
     assert api.get(f"/api/items/{task['id']}/pdf").status_code == 400
     assert client_as(OTHER).get(f"/api/items/{inv['id']}/pdf").status_code == 404
+
+
+# ---------- step 6: clients ----------
+def test_clients_list_shows_paid_and_owes(api):
+    ann, bob = new_client(api, "Ann Lee"), new_client(api, "Bob Ray")
+    api.post("/api/items", json={"kind": "invoice", "client_id": ann["id"], "lines": [{"text": "a", "price": 100.10}], "status": "paid"})
+    api.post("/api/items", json={"kind": "invoice", "client_id": ann["id"], "lines": [{"text": "b", "price": 200.20}], "status": "paid"})
+    api.post("/api/items", json={"kind": "invoice", "client_id": ann["id"], "lines": [{"text": "c", "price": 50}], "status": "requested"})
+    api.post("/api/items", json={"kind": "invoice", "client_id": ann["id"], "lines": [{"text": "not sent", "price": 999}]})
+    api.post("/api/items", json={"kind": "estimate", "client_id": ann["id"], "lines": [{"text": "e", "price": 777}], "status": "sent"})
+    rows = {c["name"]: (c["paid"], c["owes"]) for c in api.get("/api/clients").json()}
+    assert rows == {"Ann Lee": (300.30, 50), "Bob Ray": (0, 0)}
+
+
+def test_client_page_jobs_edit_and_delete_keeps_the_money_records(api):
+    cid = new_client(api, "Ann Lee")["id"]
+    inv = api.post("/api/items", json={"kind": "invoice", "client_id": cid, "lines": [{"text": "a", "price": 100}]}).json()
+    api.post("/api/items", json={"kind": "task", "client_id": cid, "title": "Visit"})
+    assert {i["kind"] for i in api.get("/api/items", params={"client_id": cid}).json()} == {"invoice", "task"}
+    r = api.patch(f"/api/clients/{cid}", json={"notes": "Gate code 1234", "preferred_language": "es"})
+    assert (r.json()["notes"], r.json()["preferred_language"]) == ("Gate code 1234", "es")
+    assert api.patch(f"/api/clients/{cid}", json={"name": "  "}).status_code == 400
+    assert api.delete(f"/api/clients/{cid}").status_code == 204
+    assert api.get(f"/api/items/{inv['id']}").status_code == 200        # the invoice stays

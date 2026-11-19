@@ -51,6 +51,12 @@ export async function fetchItems(start: string, end: string): Promise<Item[]> {
   return rows.map(toItem);
 }
 
+/** All jobs of one client (the client's page). */
+export async function fetchClientItems(clientId: string): Promise<Item[]> {
+  const rows = await api<ServerItem[]>(`/api/items?client_id=${encodeURIComponent(clientId)}`);
+  return rows.map(toItem);
+}
+
 export const getItem = (id: string) => api<ServerItem>(`/api/items/${id}`);
 
 export const patchItem = (id: string, body: Record<string, unknown>) =>

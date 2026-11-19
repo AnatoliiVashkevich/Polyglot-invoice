@@ -12,6 +12,8 @@ export type Client = {
   notes: string;
   preferred_language: '' | Lang;
   last_used?: string; // when their newest job was created ('' = never)
+  paid?: number; // the Clients list: all paid invoices
+  owes?: number; // the Clients list: invoices sent and waiting for money
 };
 
 export type ClientDraft = Omit<Client, 'id' | 'notes' | 'last_used'> & { id?: string; fromContacts?: boolean };
@@ -30,6 +32,18 @@ export type Settings = {
 };
 
 export const fetchClients = () => api<Client[]>('/api/clients');
+
+export const getClient = (id: string) => api<Client>(`/api/clients/${id}`);
+
+export type ClientFields = Pick<Client, 'name' | 'phone' | 'email' | 'address' | 'notes' | 'preferred_language'>;
+
+/** The client page's Edit / New client: create (id empty) or update. */
+export const storeClient = (fields: ClientFields, id?: string) =>
+  id
+    ? api<Client>(`/api/clients/${id}`, { method: 'PATCH', body: fields })
+    : api<Client>('/api/clients', { method: 'POST', body: fields });
+
+export const deleteClient = (id: string) => api<void>(`/api/clients/${id}`, { method: 'DELETE' });
 
 export const fetchSettings = () => api<Settings>('/api/settings');
 

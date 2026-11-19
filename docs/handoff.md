@@ -7,7 +7,11 @@ Last updated: 2026-11-19. Update this file at the end of every session.
   field frames, Work / Materials on every line (no Expenses screen; Create asks "Add these materials to your expenses?"),
   prices kept from estimate → task → invoice, "Pick from all contacts", "Choose the customer". The job card is
   `src/app/job/[id].tsx`; notifications in `src/lib/notifications.ts` (the late-invoice notice was not seen live yet).
-- **Now: Step 6, Clients.**
+- **Step 6 (Clients) is built, waiting for the owner's iPhone test (2026-11-19).** Clients tab
+  `src/app/(tabs)/clients.tsx` (search, "owes $" per client, "＋ New client"), the client's page `src/app/client/[id].tsx`
+  (Call / Text / Navigate, Paid total / Owes now, contacts, language, notes, their jobs newest first; ＋ pre-fills the
+  client), `src/app/edit-client.tsx` (edit / new / delete). Pure helpers in `src/lib/client-tools.ts` (tested).
+  Server `GET /api/clients` now returns `paid` and `owes`.
   **Open ideas to discuss with the owner** are in product-decisions.md "Still to decide" (easier price entry, repeating
   tasks, history, notes). Remind the owner about them.
 - If Metro says a package "could not be resolved" after a new install: stop Expo and run `npx expo start --clear`.

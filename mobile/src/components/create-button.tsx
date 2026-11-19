@@ -12,7 +12,7 @@ export type CreateKind = 'invoice' | 'estimate' | 'task' | 'expense';
 
 const TAB_BAR = 49; // the iPhone tab bar height above the home-indicator area
 
-export function CreateButton({ onCreate }: { onCreate?: (kind: CreateKind) => void }) {
+export function CreateButton({ onCreate, clientId }: { onCreate?: (kind: CreateKind) => void; clientId?: string }) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
@@ -20,9 +20,9 @@ export function CreateButton({ onCreate }: { onCreate?: (kind: CreateKind) => vo
   const choose = (kind: CreateKind) => {
     setOpen(false);
     if (onCreate) onCreate(kind);
-    else if (kind === 'invoice') router.push('/new-invoice');
-    else if (kind === 'estimate') router.push({ pathname: '/new-invoice', params: { kind: 'estimate' } });
-    else if (kind === 'task') router.push('/new-task');
+    else if (kind === 'invoice') router.push({ pathname: '/new-invoice', params: clientId ? { client: clientId } : {} });
+    else if (kind === 'estimate') router.push({ pathname: '/new-invoice', params: { kind: 'estimate', ...(clientId ? { client: clientId } : {}) } });
+    else if (kind === 'task') router.push({ pathname: '/new-task', params: clientId ? { client: clientId } : {} });
     else Alert.alert(t('Coming soon'), t('This form is built in a later step.'));
   };
 

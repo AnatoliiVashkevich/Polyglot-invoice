@@ -35,6 +35,8 @@ function Screens() {
         <Stack.Screen name="new-invoice" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
         <Stack.Screen name="new-task" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
         <Stack.Screen name="job/[id]" />
+        <Stack.Screen name="client/[id]" />
+        <Stack.Screen name="edit-client" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
       </Stack.Protected>
       <Stack.Protected guard={!signedIn}>
         <Stack.Screen name="sign-in" />

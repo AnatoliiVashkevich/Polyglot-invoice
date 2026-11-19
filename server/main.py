@@ -4,6 +4,7 @@ Every route below /api (except sign-in) needs the signed-in user (auth.current_u
 Product rules: docs/product-decisions.md.
 """
 import logging
+from decimal import Decimal
 from datetime import date, datetime, timedelta, timezone
 from typing import Literal
 
@@ -130,13 +131,22 @@ def find_same_client(clients: list[dict], phone: str, email: str) -> dict | None
 
 @app.get("/api/clients")
 def list_clients(uid: str = Depends(auth.current_user)):
-    """A-Z, each with last_used (when their newest job was created) so the app can show recent clients first."""
+    """A-Z, each with last_used (when their newest job was created) so the app can show recent clients first,
+    paid (all paid invoices) and owes (invoices sent and waiting for money) for the Clients tab."""
     last_used: dict[str, str] = {}
+    paid: dict[str, Decimal] = {}
+    owes: dict[str, Decimal] = {}
     for it in db.list_rows("items", uid):
         cid = it.get("client_id")
-        if cid and str(it.get("created_at", "")) > last_used.get(cid, ""):
+        if not cid:
+            continue
+        if str(it.get("created_at", "")) > last_used.get(cid, ""):
             last_used[cid] = str(it["created_at"])
-    rows = [{**c, "last_used": last_used.get(c["id"], "")} for c in db.list_rows("clients", uid)]
+        if it.get("kind") == "invoice" and it.get("status") in ("paid", "requested"):
+            box = paid if it["status"] == "paid" else owes
+            box[cid] = box.get(cid, Decimal(0)) + Decimal(str(it.get("total") or 0))
+    rows = [{**c, "last_used": last_used.get(c["id"], ""), "paid": float(paid.get(c["id"], 0)),
+             "owes": float(owes.get(c["id"], 0))} for c in db.list_rows("clients", uid)]
     return sorted(rows, key=lambda c: c["name"].lower())
 
 

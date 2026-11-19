@@ -8,22 +8,12 @@ import { Alert, Linking, Pressable, StyleSheet, Text, TextInput, View } from 're
 
 import { t } from '@/i18n';
 import type { Client, ClientDraft } from '@/lib/clients';
+import { matches, phoneKey } from '@/lib/client-tools';
 import { contactsAccess, pickPhoneContact, loadContacts, type ContactsAccess, type PhoneContact } from '@/lib/contacts';
 import { radius, useColors } from '@/theme';
 
 const MAX_ROWS = 8;
 
-const phoneKey = (p: string) => {
-  const digits = p.replace(/\D/g, '');
-  return digits.length >= 7 ? digits.slice(-10) : '';
-};
-
-function matches(q: string, ...fields: string[]) {
-  const words = q.toLowerCase().split(/\s+/).filter(Boolean);
-  const hay = fields.join(' ').toLowerCase();
-  const digits = q.replace(/\D/g, '');
-  return words.every((w) => hay.includes(w)) || (digits.length >= 3 && fields.some((f) => f.replace(/\D/g, '').includes(digits)));
-}
 
 export function CustomerStep({
   clients,
