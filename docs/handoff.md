@@ -3,8 +3,11 @@
 Last updated: 2026-11-19. Update this file at the end of every session.
 
 ## Status
-- **Step 5 is built and being tested (2026-11-19).** First feedback is fixed (product-decisions.md §6f): button and
-  field frames, estimate wording and materials, prices kept from estimate → task → invoice, "Pick from all contacts".
+- **Step 5 is done and tested on the iPhone (2026-11-19).** Feedback fixed (product-decisions.md §6f): button and
+  field frames, Work / Materials on every line (no Expenses screen; Create asks "Add these materials to your expenses?"),
+  prices kept from estimate → task → invoice, "Pick from all contacts", "Choose the customer". The job card is
+  `src/app/job/[id].tsx`; notifications in `src/lib/notifications.ts` (the late-invoice notice was not seen live yet).
+- **Now: Step 6, Clients.**
   **Open ideas to discuss with the owner** are in product-decisions.md "Still to decide" (easier price entry, repeating
   tasks, history, notes). Remind the owner about them.
 - If Metro says a package "could not be resolved" after a new install: stop Expo and run `npx expo start --clear`.

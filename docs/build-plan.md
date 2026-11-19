@@ -53,7 +53,7 @@ A step is done only when its **"Test on iPhone"** works for the owner. Then mark
   (method + date), Undo payment, paid = locked, swipe actions in the day list.
 - **Test on iPhone:** send yourself an invoice via Messages or Mail, mark it paid, see it turn light with ✓.
 
-### [ ] 5. The job card and the stages
+### [x] 5. The job card and the stages  — tested on the iPhone 2026-11-19
 - The next-step button; estimates (Created → Sent → Schedule the job / Make invoice); tasks (customer, what, date + time,
   reminder); task → invoice prefilled; local notifications for task reminders and late invoices (with the ready reminder message).
 - **Test on iPhone:** walk one job from estimate → scheduled → done → invoice → paid.
@@ -69,7 +69,9 @@ A step is done only when its **"Test on iPhone"** works for the owner. Then mark
 - **Test on iPhone:** dictate in Russian, the client gets English + Spanish PDFs that say exactly what was meant.
 
 ### [ ] 8. Money and expenses
-- Expense with receipt photo (AI reads it), linked to a client or General business; Money screen (periods, received,
+- Expense with receipt photo (AI reads it), linked to a client or General business; the "Add these materials to
+  your expenses?" window at invoice Create also offers **Take a photo of the receipt** (owner, 2026-11-19), and a receipt
+  that looks already saved for that invoice gets a warning (counted once); Money screen (periods, received,
   waiting, expenses, profit, tax set-aside, sales tax shown separately); CSV export.
 - **Test on iPhone:** add a receipt, see this month's profit.
 
