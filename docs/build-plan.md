@@ -48,7 +48,7 @@ A step is done only when its **"Test on iPhone"** works for the owner. Then mark
 - Numbering (INV-0001, editable, continues the user's format), optional tax, totals.
 - **Test on iPhone:** create a real invoice in under a minute; it appears on the calendar.
 
-### [ ] 4. PDF, send, paid
+### [x] 4. PDF, send, paid  — tested on the iPhone 2026-11-19
 - The PDF (official language; labels translated), the share sheet → Requested automatically, Edit / Later, Mark Paid
   (method + date), Undo payment, paid = locked, swipe actions in the day list.
 - **Test on iPhone:** send yourself an invoice via Messages or Mail, mark it paid, see it turn light with ✓.

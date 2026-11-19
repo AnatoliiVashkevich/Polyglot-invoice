@@ -24,4 +24,5 @@ At the end of each session, update `docs/handoff.md` and commit.
 - app: `cd mobile` then `npm run check` (plain-Node unit tests in `src/**/*.test.ts` + type check + lint)
 New rules get a test in the same commit. Pure app logic goes in `src/lib/` files without `@/` imports so Node can test it.
 
-**Run on the iPhone:** in `mobile/`, run `npx expo start --tunnel` and scan the QR code with Expo Go.
+**Run on the iPhone:** the phone and the PC on the same Wi-Fi. Start the server (see `docs/handoff.md`), then in
+`mobile/` run `npx expo start` and scan the QR code with Expo Go. (A tunnel can't reach the server on port 8000 yet.)
