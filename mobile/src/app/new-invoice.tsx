@@ -22,6 +22,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BigButton, Chip, Field, ReviewCard } from '@/components/form';
+import { BusinessSheet } from '@/components/business-sheet';
 import { CustomerStep } from '@/components/invoice/customer-step';
 import { LANGUAGES, t, type Lang } from '@/i18n';
 import { api, ApiError } from '@/lib/api';
@@ -77,6 +78,7 @@ export default function NewInvoiceScreen() {
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [editBusiness, setEditBusiness] = useState(false);
 
   useEffect(() => {
     Promise.all([fetchClients(), fetchSettings(), editId ? getItem(editId) : fetchNextNumber('invoice')])
@@ -282,8 +284,8 @@ export default function NewInvoiceScreen() {
   const subtitle = [
     '',
     '',
-    t('The work and its price, one line each.'),
-    t('Materials you bought for this job, with the price.'),
+    t('Write what you did and the price. Use as many lines as you need: one fixed price for the whole job, or a line for each part. Charging by the hour? Put the hours in Qty.'),
+    t('Materials you bought for this job, with the price. No expenses? Tap Skip at the bottom.'),
     '',
     t('Tap anything to change it.'),
   ][step];
@@ -350,14 +352,14 @@ export default function NewInvoiceScreen() {
                 <TextInput
                   value={w.text}
                   onChangeText={(v) => setW(w.key, { text: v })}
-                  placeholder={i === 0 ? t('Work, e.g. Installed 2 doors') : t('Work')}
+                  placeholder={i === 0 ? t('e.g. Installed 2 doors, or the full scope of work') : t('Work')}
                   placeholderTextColor={colors.faint}
                   autoFocus={i === 0 && !w.text}
                   multiline
                   style={[styles.lineText, { color: colors.text }]}
                 />
                 <View style={styles.lineRow}>
-                  <Text style={[styles.small, { color: colors.muted }]}>{t('Qty')}</Text>
+                  <Text style={[styles.small, { color: colors.muted }]}>{t('Qty / hours')}</Text>
                   <TextInput
                     value={w.qty}
                     onChangeText={(v) => setW(w.key, { qty: v })}
@@ -436,6 +438,7 @@ export default function NewInvoiceScreen() {
                 value={parseIso(date)}
                 mode="date"
                 display="inline"
+                style={{ alignSelf: 'stretch' }}
                 accentColor={colors.accent}
                 onValueChange={(_, d) => setDate(isoDate(d))}
               />
@@ -451,11 +454,40 @@ export default function NewInvoiceScreen() {
       default:
         return client ? (
           <View style={styles.gap}>
-            <ReviewCard onPress={() => go(1)}>
-              <Text style={[styles.cardTitle, { color: colors.text }]}>{client.name}</Text>
-              {!!(client.phone || client.email) && (
-                <Text style={[styles.small, { color: colors.muted }]}>{[client.phone, client.email].filter(Boolean).join(' · ')}</Text>
+            {/* everything printed on the PDF, so it can be checked before Create */}
+            <ReviewCard onPress={() => setEditBusiness(true)}>
+              <Text style={[styles.cardLabel, { color: colors.muted }]}>{t('FROM')}</Text>
+              {settings.name ? (
+                <>
+                  <Text style={[styles.cardTitle, { color: colors.text }]}>{settings.name}</Text>
+                  {[settings.address, [settings.phone, settings.email].filter(Boolean).join(' · ')]
+                    .filter(Boolean)
+                    .map((line) => (
+                      <Text key={line} style={[styles.small, { color: colors.muted }]}>
+                        {line}
+                      </Text>
+                    ))}
+                  {!!settings.payment_info && (
+                    <Text style={[styles.small, { color: colors.muted }]}>
+                      {t('Payment')}: {settings.payment_info}
+                    </Text>
+                  )}
+                </>
+              ) : (
+                <Text style={[styles.reviewText, { color: colors.accent, fontWeight: '700' }]}>{t('Add your business name and contacts')}</Text>
               )}
+            </ReviewCard>
+
+            <ReviewCard onPress={() => go(1)}>
+              <Text style={[styles.cardLabel, { color: colors.muted }]}>{t('BILL TO')}</Text>
+              <Text style={[styles.cardTitle, { color: colors.text }]}>{client.name}</Text>
+              {[client.address, [client.phone, client.email].filter(Boolean).join(' · ')]
+                .filter(Boolean)
+                .map((line) => (
+                  <Text key={line} style={[styles.small, { color: colors.muted }]}>
+                    {line}
+                  </Text>
+                ))}
             </ReviewCard>
 
             <ReviewCard onPress={() => go(2)}>
@@ -504,6 +536,13 @@ export default function NewInvoiceScreen() {
                 {formatDay(date, 'en-US')} · {dueDays === 0 ? t('Due: Now') : t('Due: {date}', { date: formatDay(dueDate(date, dueDays), 'en-US') })}
               </Text>
             </ReviewCard>
+
+            {!!settings.invoice_terms && (
+              <View style={[styles.termsCard, { backgroundColor: colors.card }]}>
+                <Text style={[styles.cardLabel, { color: colors.muted }]}>{t('TERMS')}</Text>
+                <Text style={[styles.small, { color: colors.text }]}>{settings.invoice_terms}</Text>
+              </View>
+            )}
           </View>
         ) : null;
     }
@@ -543,6 +582,16 @@ export default function NewInvoiceScreen() {
         <View style={{ marginTop: 16 }}>{body()}</View>
       </ScrollView>
 
+      <BusinessSheet
+        settings={settings}
+        visible={editBusiness}
+        onClose={() => setEditBusiness(false)}
+        onSaved={(s) => {
+          setSettings(s);
+          setEditBusiness(false);
+        }}
+      />
+
       {(!!error || bottom) && (
         <View style={[styles.bottom, { paddingBottom: Math.max(insets.bottom, 12), borderTopColor: colors.line, backgroundColor: colors.bg }]}>
           {!!error && <Text style={[styles.error, { color: '#E5484D' }]}>{error}</Text>}
@@ -577,7 +626,9 @@ const styles = StyleSheet.create({
   switchText: { fontSize: 16 },
   langCard: { borderRadius: radius.md, padding: 14, gap: 6, marginTop: 4 },
   langTitle: { fontSize: 16, fontWeight: '700' },
-  calendarCard: { borderRadius: radius.md, padding: 8 },
+  calendarCard: { borderRadius: radius.md, padding: 8, alignItems: 'center' },
+  cardLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.6 },
+  termsCard: { borderRadius: radius.md, padding: 14, gap: 4 },
   cardTitle: { fontSize: 18, fontWeight: '700' },
   reviewLine: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
   reviewText: { fontSize: 16, flexShrink: 1 },

@@ -18,6 +18,10 @@ export type ClientDraft = Omit<Client, 'id' | 'notes' | 'last_used'> & { id?: st
 
 export type Settings = {
   name: string;
+  phone: string;
+  email: string;
+  address: string;
+  payment_info: string;
   doc_language: Lang;
   tax_rate: number | string;
   tax_applies_to: TaxAppliesTo;

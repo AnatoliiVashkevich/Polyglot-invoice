@@ -2,7 +2,7 @@
 
 Layout, top to bottom:
     [logo] the business (name, address, phone, email)      INVOICE, No., Date, Due · "PAID" once paid
-    BILL TO (client)                                       JOB SITE (address)
+    BILL TO (client: name, address, phone, email)          JOB SITE (only when it differs from the client's address)
     Description | Qty | Rate | Amount                      <- the item's lines
     Subtotal · Sales tax (only when there is tax) · TOTAL DUE / TOTAL PAID
     Payment details, terms, thank-you line
@@ -160,11 +160,12 @@ def build_pdf(item: dict, client: dict, business: dict, lang: str = "en") -> byt
     head.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0),
                               ("RIGHTPADDING", (0, 0), (-1, -1), 0)]))
 
-    # ---- bill to | job site
-    bill = [P(L["BILL TO"], small), P(client.get("name") or "-", bold)]
-    bill += [P(x) for x in present(client.get("phone"), client.get("email"))]
-    site_address = item.get("address") or client.get("address")
-    site = [P(L["JOB SITE"], small), P(site_address)] if site_address else []
+    # ---- bill to (the client's name, address, phone and email together) | job site only when it is elsewhere
+    bill = [P(L["BILL TO"], small), P(client.get("name") or "-", ParagraphStyle("cl", parent=bold, fontSize=12, leading=16))]
+    bill += [P(x) for x in present(client.get("address"), client.get("phone"), client.get("email"))]
+    site_address = (item.get("address") or "").strip()
+    elsewhere = site_address and site_address.lower() != (client.get("address") or "").strip().lower()
+    site = [P(L["JOB SITE"], small), P(site_address)] if elsewhere else []
     parties = Table([[bill, site]], colWidths=[3.4 * inch, 3.5 * inch])
     parties.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0)]))
 

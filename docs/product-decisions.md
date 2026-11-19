@@ -222,6 +222,18 @@ the website address (polyglotinvoice.com) and a USPTO trademark search.
   another language better, they also get a copy in that language." Choices: "No, English only" · Español · Português ·
   Русский · Українська ("English" = the document language from Settings). The same wording goes on the client's page (§9b).
 
+## 6e. Details agreed while testing step 4 (2026-11-19)
+
+- **Work step wording:** "Write what you did and the price. Use as many lines as you need: one fixed price for the whole
+  job, or a line for each part. Charging by the hour? Put the hours in Qty." The quantity field is "Qty / hours".
+- **Expenses step:** under the question, "No expenses? Tap Skip at the bottom."
+- **Review shows everything printed on the PDF** before Create: FROM (the user's business: name, address, phone, email,
+  how customers pay; tap to fill in / change), BILL TO (the client with address, phone, email), lines, tax, total,
+  number, date and due, terms.
+- **PDF:** the client's name, address, phone and email are together under BILL TO. JOB SITE shows only when the job
+  address differs from the client's address.
+- **Calendar:** shows only the weeks the month needs (4–6), no extra row of next month.
+
 ## 13. Database (decided 2026-11-19)
 
 - The new app **reuses the crm-solo Supabase project and its keys**. Its old tables hold only test data and are
