@@ -209,6 +209,15 @@ A bottom bar with 4 tabs: **Calendar · Clients · Money · Settings**. The oran
 **Polyglot Invoice**. A quick web search found no app with this name. Before publishing, check the App Store,
 the website address (polyglotinvoice.com) and a USPTO trademark search.
 
+## 6d. Details agreed while testing step 3 (2026-11-19)
+
+- **Customer step order:** search box → the contacts row → Recent clients (before typing) / results (while typing).
+- **The contacts row is always visible** when it can help: "Search your phone contacts" (not asked yet),
+  "Choose more contacts" (only some contacts shared: opens the iPhone's contact chooser again),
+  "Allow contacts in Settings" (refused). With full access there is no row: matching contacts appear while typing,
+  or "No phone contacts match…".
+- **Work lines** have Work · Qty (default 1) · Price, so "2 × $200" can be typed without voice.
+
 ## 13. Database (decided 2026-11-19)
 
 - The new app **reuses the crm-solo Supabase project and its keys**. Its old tables hold only test data and are

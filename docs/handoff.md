@@ -3,13 +3,16 @@
 Last updated: 2026-11-19. Update this file at the end of every session.
 
 ## Status
-- **Steps 0, 1 and 2 are done and tested on the owner's iPhone (2026-11-19).**
-- Step 2 built: `server/` (FastAPI: sign up / sign in / refresh / delete account, settings, clients, items, expenses;
-  20 tests in `server/tests`), the new schema in `server/schema.sql` (already run in Supabase; old crm-solo tables gone),
-  and in the app: the sign-in screen, the session in secure storage, the calendar loading real data, Sign out in Settings.
-- The owner signed in with their old crm-solo login (it still exists in Supabase Auth with its old password).
-  Two other old test logins (test…, 1@1…) also remain; harmless.
-- **Next: Step 3, new invoice by typing.** Ask the owner before starting it.
+- **Steps 0–3 are done and tested on the owner's iPhone (2026-11-19).**
+- Step 3 built: `mobile/src/app/new-invoice.tsx` (6-step questionnaire, full-screen modal from the ＋ menu),
+  `components/invoice/customer-step.tsx` (clients → phone contacts → new client), `lib/invoice-math.ts` (+ tests:
+  `npm test` in `mobile/`, plain Node), server `numbering.py` (INV-0001, continues the user's format, 409 + next free),
+  `/api/next-number`, clients `use_existing` (no duplicates from contacts), expenses saved with the invoice.
+  Server tests: 30 (`venv\Scripts\python -m pytest`).
+- After Create the app returns to the calendar on the invoice's day (`?day=&at=` params). Tapping a row still shows
+  "built in a later step"; the PDF / Send / Mark Paid come in **Step 4**.
+- The owner signs in with their old crm-solo login. Two other old test logins remain in Supabase Auth; harmless.
+- **Next: Step 4, PDF, send, paid.** Ask the owner before starting it.
 
 ## How the server runs (testing)
 - `cd C:\polyglot-invoice\server` then `venv\Scripts\python -m uvicorn main:app --host 0.0.0.0 --port 8000`.

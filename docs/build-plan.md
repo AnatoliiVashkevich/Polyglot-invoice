@@ -42,7 +42,7 @@ A step is done only when its **"Test on iPhone"** works for the owner. Then mark
 - Sign in with email and password (Supabase). Sign in with Apple comes in step 10 (it needs a development build).
 - **Test on iPhone:** sign up, sign in; the calendar now shows real (empty) data.
 
-### [ ] 3. New invoice by typing (the core, Free plan)
+### [x] 3. New invoice by typing (the core, Free plan)  — tested on the iPhone 2026-11-19
 - The questionnaire: 1 customer (search clients → phone contacts → new) · 2 check info · 3 work + prices
   (plain fields) · 4 expenses with "Add to invoice?" · 5 date and due date · 6 review → Create.
 - Numbering (INV-0001, editable, continues the user's format), optional tax, totals.
