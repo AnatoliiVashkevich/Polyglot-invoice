@@ -92,10 +92,11 @@ filled-in steps are skipped. Free users get the same screens with plain fields.
 2. **Check the customer's info:** pre-filled, edit if needed.
 3. **Work and prices in one sentence:** "installed 2 single swing doors, 200 each, 1 double swing 300".
    The AI turns it into clean lines (2 × $200 = $400; 1 × $300). Free users: "Work" + "Price" fields, ＋ for another line.
-4. **Expenses, if any, with a price:** "materials 64.50". Each has a switch **"Add to invoice?"** (on by default).
-   It is always saved as the user's expense as well.
-5. **Date:** today by default, changeable.
-6. **Review:** every field editable → **Create invoice**.
+4. **Date:** today by default, changeable.
+5. **Review:** every field editable → **Create invoice**.
+
+(Changed 2026-11-19, §6f: there is no separate Expenses screen any more. Materials are lines on the invoice, and
+Create asks whether to save what the user paid as expenses.)
 
 **After Create:** the PDF opens with a big **Send** button (share sheet: Mail, Messages, WhatsApp…), **✏️ Edit** and **Later**.
 - Editable until **Paid**. Editing after sending asks "Send the updated invoice to the customer?"
@@ -242,7 +243,12 @@ the website address (polyglotinvoice.com) and a USPTO trademark search.
 - **Every button has a frame** (border), so it clearly looks like a button. "＋ Another line" is an outlined button.
 - **Text fields have a visible frame** (the work description too), so they clearly look like fields.
 - **Estimate wording:** "What work will you do?" and "Write the work and materials you offer, with prices…".
-- **Estimates can have materials:** each line on an estimate has a Work / Materials choice (the tax on materials works).
+- **Work / Materials on every line** (estimates and invoices; the tax on materials works). **The Expenses screen is
+  gone.** When an invoice with Materials lines is created, a window asks **"Add these materials to your expenses?"**:
+  each material shows **"I paid $"** (filled in with the line amount, changeable, because the customer may pay more),
+  then **Add to my expenses** or **Later**. It explains: expenses show how much you really earn; **each cost is
+  counted once**: here, or later from the receipt with ＋ → Expense, not both. Saved expenses are linked to the invoice.
+  (Step 8 should warn when a receipt looks like one already saved for that invoice.)
 - **Prices travel along the job:** a task scheduled from an estimate keeps the estimate's lines and total (shown on the
   task card as "Price (from the estimate)"). "Job done → Create invoice" then fills everything in and opens Review
   right away; the user can still change anything.

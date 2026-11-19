@@ -217,7 +217,9 @@ class ItemFields(BaseModel):
 
 
 class NewExpense(BaseModel):
-    """Step 4 of the questionnaire: always saved as the user's expense; on the invoice too when add_to_invoice."""
+    """What the user paid for this job's materials, saved as their expense and linked to the invoice (asked at
+    Create: "Add these materials to your expenses?"). add_to_invoice also adds it as a line (the app now sends the
+    lines itself, so it sends False)."""
     description: str = Field("", max_length=500)
     amount: float = Field(0, ge=0, le=10000000)
     add_to_invoice: bool = True
@@ -320,7 +322,7 @@ def create_item(body: ItemIn, uid: str = Depends(auth.current_user)):
         if e.amount > 0:
             db.insert_row("expenses", {"date": data["date"], "description": e.description.strip(), "amount": e.amount,
                                        "category": "Materials", "client_id": data.get("client_id"),
-                                       "item_id": row["id"] if e.add_to_invoice and kind != "task" else None}, uid)
+                                       "item_id": row["id"] if kind != "task" else None}, uid)
     # "Job done -> Create invoice": the task it was made from is done now
     if source and source["kind"] == "task" and kind != "task" and source["status"] != "done":
         db.update_row("items", source["id"], {"status": "done"}, uid)

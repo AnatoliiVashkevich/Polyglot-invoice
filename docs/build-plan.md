@@ -44,7 +44,7 @@ A step is done only when its **"Test on iPhone"** works for the owner. Then mark
 
 ### [x] 3. New invoice by typing (the core, Free plan)  — tested on the iPhone 2026-11-19
 - The questionnaire: 1 customer (search clients → phone contacts → new) · 2 check info · 3 work + prices
-  (plain fields) · 4 expenses with "Add to invoice?" · 5 date and due date · 6 review → Create.
+  (plain fields; each line Work or Materials) · 4 date and due date · 5 review → Create (asks to save materials as expenses; changed 2026-11-19).
 - Numbering (INV-0001, editable, continues the user's format), optional tax, totals.
 - **Test on iPhone:** create a real invoice in under a minute; it appears on the calendar.
 

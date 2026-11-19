@@ -69,3 +69,16 @@ def test_task_from_an_estimate_keeps_its_prices_for_the_invoice(api):
     assert task["total"] == est["total"] == 1890
     plain = api.post("/api/items", json={"kind": "task", "title": "Pick up tile"}).json()
     assert plain.get("lines", []) == [] and plain.get("total", 0) == 0
+
+
+def test_materials_on_the_invoice_and_what_the_user_paid_counted_once(api, fake):
+    """No Expenses screen: materials are invoice lines; at Create the user may save what they paid (once)."""
+    cid = new_client(api)["id"]
+    lines = [{"text": "Install door", "qty": 1, "price": 300}, {"text": "Door", "qty": 1, "price": 250, "kind": "material"}]
+    inv = api.post("/api/items", json={"kind": "invoice", "client_id": cid, "lines": lines,
+                                       "expenses": [{"description": "Door", "amount": 180, "add_to_invoice": False}]}).json()
+    assert inv["total"] == 550 and len(inv["lines"]) == 2          # the customer pays the line price
+    saved = list(fake.tables["expenses"].values())
+    assert [(e["amount"], e["item_id"]) for e in saved] == [(180, inv["id"])]   # the user paid 180, saved once
+    later = api.post("/api/items", json={"kind": "invoice", "client_id": cid, "lines": lines}).json()   # "Later"
+    assert later["total"] == 550 and len(fake.tables["expenses"]) == 1

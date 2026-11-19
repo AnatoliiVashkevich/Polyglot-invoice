@@ -256,7 +256,7 @@ def test_expenses_are_saved_and_added_to_the_invoice_when_asked(api, fake):
                                 {"description": "Drill bits", "amount": 12, "add_to_invoice": False}])
     assert inv["total"] == 464.5 and inv["lines"][-1] == {"text": "Materials", "qty": 1, "price": 64.5, "kind": "material"}
     saved = sorted(fake.tables["expenses"].values(), key=lambda e: e["amount"])
-    assert [(e["amount"], e["item_id"], e["client_id"]) for e in saved] == [(12, None, cid), (64.5, inv["id"], cid)]
+    assert [(e["amount"], e["item_id"], e["client_id"]) for e in saved] == [(12, inv["id"], cid), (64.5, inv["id"], cid)]
 
 
 # ---------- step 4: the PDF ----------

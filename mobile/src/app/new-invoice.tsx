@@ -1,11 +1,11 @@
 // NEW INVOICE: a questionnaire, one question per screen (product-decisions.md §6):
-//   1 Customer · 2 Check info · 3 Work + prices · 4 Expenses · 5 Date · 6 Review → Create
+//   1 Customer · 2 Check info · 3 Work + prices (each line Work or Materials) · 4 Date · 5 Review → Create
+// With Materials lines, Create asks "Add these materials to your expenses?" (what the user paid, counted once).
 // Free plan: plain fields. (Voice fills these same steps in build step 7.)
-// ESTIMATE: /new-invoice?kind=estimate — the same screens without Expenses and Due (EST-0001…).
+// ESTIMATE: /new-invoice?kind=estimate — the same screens without Due (EST-0001…).
 // FROM: /new-invoice?from=<task or estimate id> — "Job done → Create invoice" / "Make invoice", filled in: a task
 //   gives the customer and the work (prices still to add, starts at Work); an estimate gives everything (Review).
-// EDIT: /new-invoice?id=… opens the same screens filled in, on Review ("Tap anything to change it"); the
-// Expenses step is skipped (expenses were saved when the invoice was created; their lines stay as lines).
+// EDIT: /new-invoice?id=… opens the same screens filled in, on Review ("Tap anything to change it").
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -27,6 +27,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BigButton, Chip, Field, ReviewCard } from '@/components/form';
 import { BusinessSheet } from '@/components/business-sheet';
 import { CustomerStep } from '@/components/invoice/customer-step';
+import { MaterialsExpenseSheet, type PaidExpense } from '@/components/materials-expense-sheet';
 import { LANGUAGES, t, type Lang } from '@/i18n';
 import { api, ApiError } from '@/lib/api';
 import { fetchClients, fetchNextNumber, fetchSettings, saveClient, type Client, type ClientDraft, type Settings } from '@/lib/clients';
@@ -37,10 +38,11 @@ import { money } from '@/lib/money';
 import { radius, useColors } from '@/theme';
 
 type WorkRow = { key: string; text: string; qty: string; price: string; kind: LineKind };
-type ExpenseRow = { key: string; description: string; amount: string; addToInvoice: boolean };
 type DueDays = number; // 0 = Now; the chips offer 0 / 7 / 15 / 30
 
-const STEPS = ['Customer', 'Check info', 'Work + prices', 'Expenses', 'Date', 'Review'] as const;
+const STEPS = ['Customer', 'Check info', 'Work + prices', 'Date', 'Review'] as const;
+const DATE = 3;
+const REVIEW = 4;
 const DUE_CHOICES: { days: DueDays; label: string }[] = [
   { days: 0, label: 'Now' },
   { days: 7, label: '7 days' },
@@ -52,7 +54,6 @@ let keySeq = 0;
 const newKey = () => `k${++keySeq}`;
 const emptyWork = (): WorkRow => ({ key: newKey(), text: '', qty: '1', price: '', kind: 'work' });
 const daysBetween = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
-const emptyExpense = (): ExpenseRow => ({ key: newKey(), description: '', amount: '', addToInvoice: true });
 // language names in the user's screen language (the chips show each language in its own name)
 const LANGUAGE_NAMES: Record<Lang, string> = { en: 'English', es: 'Spanish', pt: 'Portuguese', ru: 'Russian', uk: 'Ukrainian' };
 const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? '';
@@ -77,7 +78,6 @@ export default function NewInvoiceScreen() {
   const [client, setClient] = useState<ClientDraft | null>(null);
   const [original, setOriginal] = useState<Client | undefined>();
   const [work, setWork] = useState<WorkRow[]>([emptyWork()]);
-  const [expenses, setExpenses] = useState<ExpenseRow[]>([emptyExpense()]);
   const [date, setDate] = useState(todayIso());
   const [dueDays, setDueDays] = useState<DueDays>(0);
   const [number, setNumber] = useState('');
@@ -112,7 +112,7 @@ export default function NewInvoiceScreen() {
             // an estimate, or a task scheduled from one: everything is known, straight to Review
             setWork(source.lines.map((l) => ({ key: newKey(), text: l.text, qty: String(l.qty ?? 1), price: String(l.price ?? ''), kind: l.kind ?? 'work' })));
             setTaxOn(Number(source.tax_rate) > 0 || Number(s.tax_rate) === 0);
-            setStep(cl ? 5 : 0);
+            setStep(cl ? REVIEW : 0);
           } else {
             setWork([{ ...emptyWork(), text: source.title }]); // a task: the work is known, the price is not
             setStep(cl ? 2 : 0);
@@ -131,14 +131,13 @@ export default function NewInvoiceScreen() {
             ? it.lines.map((l) => ({ key: newKey(), text: l.text, qty: String(l.qty ?? 1), price: String(l.price ?? ''), kind: l.kind ?? 'work' }))
             : [emptyWork()],
         );
-        setExpenses([]);
         setDate(it.date);
         setDueDays(it.due_date ? Math.max(0, daysBetween(it.date, it.due_date)) : 0);
         setNumber(it.number);
         setTaxOn(Number(it.tax_rate) > 0);
         if (it.kind === 'estimate') setKind('estimate');
         setEditing(it);
-        setStep(5);
+        setStep(REVIEW);
       })
       .catch((e) => setLoadError(e instanceof Error ? e.message : 'Could not load.'));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- loaded once for the screen's params
@@ -152,19 +151,7 @@ export default function NewInvoiceScreen() {
         .map((w) => ({ text: w.text.trim(), qty: w.qty.trim() ? parseAmount(w.qty) : 1, price: parseAmount(w.price), kind: w.kind })),
     [work],
   );
-  const expenseRows = useMemo(
-    () => expenses.filter((e) => e.amount.trim()).map((e) => ({ ...e, value: parseAmount(e.amount) })),
-    [expenses],
-  );
-  const invoiceLines: Line[] = useMemo(
-    () => [
-      ...workLines,
-      ...expenseRows
-        .filter((e) => e.addToInvoice && e.value > 0)
-        .map((e) => ({ text: e.description.trim() || t('Materials'), qty: 1, price: e.value, kind: 'material' as const })),
-    ],
-    [workLines, expenseRows],
-  );
+  const invoiceLines = workLines;
   // an invoice keeps the tax rate it was made with; a new one takes it from Settings
   const taxRate = editing && Number(editing.tax_rate) > 0 ? Number(editing.tax_rate) : Number(settings?.tax_rate ?? 0);
   const taxAppliesTo = (editing ? editing.tax_applies_to : settings?.tax_applies_to) ?? 'materials';
@@ -187,9 +174,8 @@ export default function NewInvoiceScreen() {
   };
 
   const back = () => {
-    if (step === 0 || (editing && step === 5)) return close();
+    if (step === 0 || (editing && step === REVIEW)) return close();
     if (step === 2 && !client) return go(0);
-    if ((editing || isEstimate) && step === 4) return go(2); // no Expenses step when editing or for estimates
     go(step - 1);
   };
 
@@ -217,14 +203,19 @@ export default function NewInvoiceScreen() {
       if (workLines.some((l) => Number.isNaN(l.price) || Number.isNaN(l.qty)))
         return setError(t('Please check the prices: numbers only, like 200 or 64.50.'));
     }
-    if (step === 3 && expenseRows.some((e) => Number.isNaN(e.value) || e.value < 0))
-      return setError(t('Please check the amounts: numbers only, like 64.50.'));
-    if (editing && (step === 2 || step === 4)) return go(5); // editing: back to Review
-    if (isEstimate && step === 2) return go(4); // estimates: no Expenses step
+    if (editing && (step === 2 || step === DATE)) return go(REVIEW); // editing: back to Review
     go(step + 1);
   };
 
-  const create = async () => {
+  // Create: with Materials lines on an invoice, first ask whether to save what the user paid as expenses
+  const [askMaterials, setAskMaterials] = useState<Line[] | null>(null);
+  const create = () => {
+    const materials = workLines.filter((l) => l.kind === 'material');
+    if (!isEstimate && materials.length) return setAskMaterials(materials);
+    createNow([]);
+  };
+
+  const createNow = async (paid: PaidExpense[]) => {
     if (!client?.id || busy) return;
     setBusy(true);
     setError('');
@@ -241,14 +232,16 @@ export default function NewInvoiceScreen() {
           title: workLines.map((l) => l.text).join(', ').slice(0, 200),
           address: client.address,
           lines: workLines,
-          expenses: isEstimate ? [] : expenseRows.map((e) => ({ description: e.description.trim(), amount: e.value, add_to_invoice: e.addToInvoice })),
+          expenses: paid.map((e) => ({ description: e.description, amount: e.amount, add_to_invoice: false })),
           tax_rate: taxOn ? taxRate : 0,
         },
       });
+      setAskMaterials(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       // "After Create: the PDF opens with a big Send button"
       router.replace({ pathname: '/job/[id]', params: { id: created.id } });
     } catch (e) {
+      setAskMaterials(null);
       if (e instanceof ApiError && e.status === 409 && typeof e.detail?.next === 'string') {
         setNumber(e.detail.next);
         setError(t('{used} is already used. Changed to {next}.', { used: number.trim(), next: e.detail.next }));
@@ -310,7 +303,6 @@ export default function NewInvoiceScreen() {
     t('Choose the customer'),
     client?.id ? t('Check {name}’s info', { name: firstName(client.name) }) : t('New client'),
     isEstimate ? t('What work will you do?') : t('What did you do?'),
-    t('Any expenses?'),
     isEstimate ? t('Date of the estimate') : t('Date'),
     t('Review'),
   ][step];
@@ -319,15 +311,12 @@ export default function NewInvoiceScreen() {
     '',
     isEstimate
       ? t('Write the work and materials you offer, with prices. One fixed price for the whole job, or a line for each part. By the hour? Put the hours in Qty.')
-      : t('Write what you did and the price. Use as many lines as you need: one fixed price for the whole job, or a line for each part. Charging by the hour? Put the hours in Qty.'),
-    t('Materials you bought for this job, with the price. No expenses? Tap Skip at the bottom.'),
+      : t('Write what you did and the materials, with prices. One fixed price for the whole job, or a line for each part. By the hour? Put the hours in Qty.'),
     '',
     t('Tap anything to change it.'),
   ][step];
 
   const setW = (key: string, patch: Partial<WorkRow>) => setWork((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
-  const setE = (key: string, patch: Partial<ExpenseRow>) =>
-    setExpenses((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   const setC = (patch: Partial<ClientDraft>) => setClient((c) => (c ? { ...c, ...patch } : c));
 
   const body = () => {
@@ -393,12 +382,10 @@ export default function NewInvoiceScreen() {
                   multiline
                   style={[styles.lineText, styles.lineBox, { color: colors.text, borderColor: colors.line, backgroundColor: colors.bg }]}
                 />
-                {(isEstimate || w.kind === 'material') && (
-                  <View style={styles.chips}>
-                    <Chip label={t('Work')} active={w.kind !== 'material'} onPress={() => setW(w.key, { kind: 'work' })} />
-                    <Chip label={t('Materials')} active={w.kind === 'material'} onPress={() => setW(w.key, { kind: 'material' })} />
-                  </View>
-                )}
+                <View style={styles.chips}>
+                  <Chip label={t('Work')} active={w.kind !== 'material'} onPress={() => setW(w.key, { kind: 'work' })} />
+                  <Chip label={t('Materials')} active={w.kind === 'material'} onPress={() => setW(w.key, { kind: 'material' })} />
+                </View>
                 <View style={styles.lineRow}>
                   <Text style={[styles.small, { color: colors.muted }]}>{t('Qty / hours')}</Text>
                   <TextInput
@@ -433,45 +420,7 @@ export default function NewInvoiceScreen() {
             )}
           </View>
         );
-      case 3:
-        return (
-          <View style={styles.gap}>
-            {expenses.map((e) => (
-              <View key={e.key} style={[styles.lineCard, { backgroundColor: colors.card }]}>
-                <View style={styles.lineRow}>
-                  <TextInput
-                    value={e.description}
-                    onChangeText={(v) => setE(e.key, { description: v })}
-                    placeholder={t('Materials')}
-                    placeholderTextColor={colors.faint}
-                    style={[styles.lineText, styles.lineBox, { color: colors.text, flex: 1, borderColor: colors.line, backgroundColor: colors.bg }]}
-                  />
-                  <Text style={[styles.small, { color: colors.muted }]}>$</Text>
-                  <TextInput
-                    value={e.amount}
-                    onChangeText={(v) => setE(e.key, { amount: v })}
-                    placeholder="0.00"
-                    placeholderTextColor={colors.faint}
-                    keyboardType="decimal-pad"
-                    style={[styles.price, { color: colors.text, borderColor: colors.line }]}
-                  />
-                  {expenses.length > 1 && (
-                    <Pressable onPress={() => setExpenses((rows) => rows.filter((r) => r.key !== e.key))} hitSlop={10} accessibilityLabel={t('Remove')}>
-                      <Text style={[styles.remove, { color: colors.faint }]}>✕</Text>
-                    </Pressable>
-                  )}
-                </View>
-                <View style={[styles.switchRow, { borderTopColor: colors.line }]}>
-                  <Text style={[styles.switchText, { color: colors.text }]}>{t('Add to invoice?')}</Text>
-                  <Switch value={e.addToInvoice} onValueChange={(v) => setE(e.key, { addToInvoice: v })} trackColor={{ true: colors.accent }} />
-                </View>
-              </View>
-            ))}
-            <Text style={[styles.small, { color: colors.muted }]}>{t('Always saved as your expense too.')}</Text>
-            <BigButton kind="quiet" title={t('＋ Another expense')} onPress={() => setExpenses((rows) => [...rows, emptyExpense()])} />
-          </View>
-        );
-      case 4:
+      case DATE:
         return (
           <View style={styles.gap}>
             <View style={[styles.calendarCard, { backgroundColor: colors.card }]}>
@@ -576,7 +525,7 @@ export default function NewInvoiceScreen() {
               />
             </View>
 
-            <ReviewCard onPress={() => go(4)}>
+            <ReviewCard onPress={() => go(DATE)}>
               <Text style={[styles.reviewText, { color: colors.text }]}>
                 {formatDay(date, 'en-US')}
                 {isEstimate ? '' : ` · ${dueDays === 0 ? t('Due: Now') : t('Due: {date}', { date: formatDay(dueDate(date, dueDays), 'en-US') })}`}
@@ -595,14 +544,12 @@ export default function NewInvoiceScreen() {
   };
 
   const bottom =
-    step === 0 ? null : step === 5 ? (
+    step === 0 ? null : step === REVIEW ? (
       editing ? (
         <BigButton title={t('Save changes')} onPress={save} busy={busy} />
       ) : (
         <BigButton title={isEstimate ? t('Create estimate') : t('Create invoice')} onPress={create} busy={busy} />
       )
-    ) : step === 3 && expenseRows.length === 0 ? (
-      <BigButton kind="quiet" title={t('Skip')} onPress={next} />
     ) : (
       <BigButton title={t('Next')} onPress={next} busy={busy} />
     );
@@ -611,7 +558,7 @@ export default function NewInvoiceScreen() {
     <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: colors.bg }}>
       <View style={[styles.top, { paddingTop: insets.top + 4 }]}>
         <Pressable onPress={back} hitSlop={12} accessibilityRole="button" accessibilityLabel={step === 0 ? t('Close') : t('Back')}>
-          <Text style={[styles.topBtn, { color: colors.accent }]}>{step === 0 || (editing && step === 5) ? t('Cancel') : `‹ ${t('Back')}`}</Text>
+          <Text style={[styles.topBtn, { color: colors.accent }]}>{step === 0 || (editing && step === REVIEW) ? t('Cancel') : `‹ ${t('Back')}`}</Text>
         </Pressable>
         <Text style={[styles.topTitle, { color: colors.muted }]}>
           {editing
@@ -633,6 +580,7 @@ export default function NewInvoiceScreen() {
         <View style={{ marginTop: 16 }}>{body()}</View>
       </ScrollView>
 
+      <MaterialsExpenseSheet materials={askMaterials} busy={busy} onAnswer={createNow} onClose={() => setAskMaterials(null)} />
       <BusinessSheet
         settings={settings}
         visible={editBusiness}
