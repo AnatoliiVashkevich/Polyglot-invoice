@@ -1,6 +1,7 @@
 // HOME: the month calendar (works like the iPhone calendar) with the selected day's list under it,
-// and the orange ＋ for creating. Data is FAKE until build step 2.
+// and the orange ＋ for creating. The items come from the server: the month on screen and one month either side.
 import * as Haptics from 'expo-haptics';
+import { useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,10 +10,10 @@ import { DayRow } from '@/components/calendar/day-list';
 import { FilterChips } from '@/components/calendar/filter-chips';
 import { MonthPager, type MonthPagerHandle } from '@/components/calendar/month-pager';
 import { CreateButton } from '@/components/create-button';
-import { fakeItems } from '@/data/fake';
-import { formatDay, formatMonth, monthOf, todayIso, weekdayNames } from '@/lib/dates';
+import { addMonths, formatDay, formatMonth, monthGrid, monthOf, todayIso, weekdayNames } from '@/lib/dates';
+import { fetchItems } from '@/lib/items';
 import { locale, t } from '@/i18n';
-import { radius, useColors } from '@/theme';
+import { kindColors, radius, useColors } from '@/theme';
 import type { Filter, Item } from '@/types';
 
 const byTime = (a: Item, b: Item) => (a.time ?? '99:99').localeCompare(b.time ?? '99:99');
@@ -27,10 +28,31 @@ export default function CalendarScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const pager = useRef<MonthPagerHandle>(null);
-  const [items] = useState<Item[]>(fakeItems);
+  const [items, setItems] = useState<Item[]>([]);
+  const [loadError, setLoadError] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const [selectedDay, setSelectedDay] = useState(todayIso());
   const [month, setMonth] = useState(monthOf(todayIso()));
+
+  // load the visible month plus one month either side (so swiping shows bars right away)
+  const load = useCallback(async (monthKey: string) => {
+    const start = monthGrid(addMonths(monthKey, -1))[0];
+    const end = monthGrid(addMonths(monthKey, 1))[41];
+    try {
+      const fresh = await fetchItems(start, end);
+      setItems((old) => [...old.filter((it) => it.date < start || it.date > end), ...fresh]);
+      setLoadError('');
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'Could not load.');
+    }
+  }, []);
+
+  // runs when the tab is shown (e.g. back from creating an invoice) and again whenever the month changes
+  useFocusEffect(
+    useCallback(() => {
+      load(month);
+    }, [load, month]),
+  );
 
   const itemsByDay = useMemo(() => {
     const map = new Map<string, Item[]>();
@@ -71,6 +93,14 @@ export default function CalendarScreen() {
       </View>
 
       <FilterChips value={filter} onChange={setFilter} />
+
+      {!!loadError && (
+        <Pressable onPress={() => load(month)} style={[styles.error, { backgroundColor: colors.card }]}>
+          <Text style={[styles.errorText, { color: kindColors.unpaid }]}>
+            {t(loadError)} {t('Tap to try again.')}
+          </Text>
+        </Pressable>
+      )}
 
       <View style={styles.weekdays}>
         {weekdayNames(locale()).map((d, i) => (
@@ -123,6 +153,8 @@ const styles = StyleSheet.create({
   weekday: { width: `${100 / 7}%`, textAlign: 'center', fontSize: 12, fontWeight: '600' },
   list: { flex: 1, borderTopWidth: StyleSheet.hairlineWidth },
   dayTitle: { fontSize: 17, fontWeight: '700', marginBottom: 2, textTransform: 'capitalize' },
+  error: { marginHorizontal: 16, marginTop: 8, borderRadius: radius.md, padding: 10 },
+  errorText: { fontSize: 13, fontWeight: '600' },
   empty: { borderRadius: radius.md, padding: 16 },
   emptyText: { fontSize: 14 },
 });

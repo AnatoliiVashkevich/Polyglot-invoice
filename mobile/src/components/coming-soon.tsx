@@ -1,17 +1,19 @@
 // A tab that is built in a later step of the build plan (development only; never shipped).
+import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { t } from '@/i18n';
 import { useColors } from '@/theme';
 
-export function ComingSoon({ title, step }: { title: string; step: number }) {
+export function ComingSoon({ title, step, children }: { title: string; step: number; children?: ReactNode }) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   return (
     <View style={[styles.screen, { backgroundColor: colors.bg, paddingTop: insets.top + 6 }]}>
       <Text style={[styles.title, { color: colors.text }]}>{t(title)}</Text>
       <Text style={[styles.note, { color: colors.muted }]}>{t('Built in step {n} of the plan.', { n: step })}</Text>
+      {children}
     </View>
   );
 }

@@ -1,0 +1,95 @@
+// Talking to our server (server/main.py). The address comes from mobile/.env.local: EXPO_PUBLIC_API_URL.
+// Every request carries the signed-in user's token; an expired token is refreshed once, automatically.
+import * as SecureStore from 'expo-secure-store';
+
+export const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? '').replace(/\/$/, '');
+
+export type Session = { access_token: string; refresh_token: string; expires_at?: number };
+
+const KEY = 'session';
+let session: Session | null = null;
+let onSignedOut: (() => void) | null = null;
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+  ) {
+    super(message);
+  }
+}
+
+export async function loadSession(): Promise<Session | null> {
+  try {
+    const raw = await SecureStore.getItemAsync(KEY);
+    session = raw ? (JSON.parse(raw) as Session) : null;
+  } catch {
+    session = null;
+  }
+  return session;
+}
+
+export async function saveSession(s: Session | null) {
+  session = s;
+  if (s) await SecureStore.setItemAsync(KEY, JSON.stringify(s));
+  else await SecureStore.deleteItemAsync(KEY);
+}
+
+/** The auth provider listens here, so an expired session sends the user back to the sign-in screen. */
+export function setSignedOutHandler(fn: (() => void) | null) {
+  onSignedOut = fn;
+}
+
+async function send(path: string, init: RequestInit, token?: string) {
+  if (!API_URL) throw new ApiError('The server address is missing (EXPO_PUBLIC_API_URL).', 0);
+  try {
+    return await fetch(`${API_URL}${path}`, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...init.headers,
+      },
+    });
+  } catch {
+    throw new ApiError('No connection to the server. Check the internet and try again.', 0);
+  }
+}
+
+async function errorFrom(res: Response): Promise<ApiError> {
+  let message = `Something went wrong (${res.status}).`;
+  try {
+    const body = await res.json();
+    if (typeof body.detail === 'string') message = body.detail;
+    else if (Array.isArray(body.detail)) message = 'Please check the fields and try again.';
+  } catch {}
+  return new ApiError(message, res.status);
+}
+
+async function refresh(): Promise<boolean> {
+  if (!session?.refresh_token) return false;
+  const res = await send('/api/auth/refresh', { method: 'POST', body: JSON.stringify({ refresh_token: session.refresh_token }) });
+  if (!res.ok) return false;
+  await saveSession((await res.json()) as Session);
+  return true;
+}
+
+/** A request without sign-in (sign up / sign in). */
+export async function publicRequest<T>(path: string, body: unknown): Promise<T> {
+  const res = await send(path, { method: 'POST', body: JSON.stringify(body) });
+  if (!res.ok) throw await errorFrom(res);
+  return (await res.json()) as T;
+}
+
+/** A signed-in request. */
+export async function api<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
+  const options: RequestInit = { method: init.method ?? 'GET', body: init.body === undefined ? undefined : JSON.stringify(init.body) };
+  let res = await send(path, options, session?.access_token);
+  if (res.status === 401 && (await refresh())) res = await send(path, options, session?.access_token);
+  if (res.status === 401) {
+    await saveSession(null);
+    onSignedOut?.();
+  }
+  if (!res.ok) throw await errorFrom(res);
+  return (res.status === 204 ? undefined : await res.json()) as T;
+}

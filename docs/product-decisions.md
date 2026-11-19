@@ -1,7 +1,7 @@
 # Polyglot Invoice — product decisions (iPhone app)
 
 The agreed user flow and rules, collected question by question with the owner. Updated after every answer.
-Last updated: 2026-11-18.
+Last updated: 2026-11-19.
 
 ## 1. Product and platform
 
@@ -208,6 +208,11 @@ A bottom bar with 4 tabs: **Calendar · Clients · Money · Settings**. The oran
 
 **Polyglot Invoice**. A quick web search found no app with this name. Before publishing, check the App Store,
 the website address (polyglotinvoice.com) and a USPTO trademark search.
+
+## 13. Database (decided 2026-11-19)
+
+- The new app **reuses the crm-solo Supabase project and its keys**. Its old tables hold only test data and are
+  replaced by the new, simpler schema (old test logins may be deleted too).
 
 ## Still to decide
 
