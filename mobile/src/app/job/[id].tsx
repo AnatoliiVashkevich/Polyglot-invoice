@@ -234,6 +234,7 @@ export default function JobScreen() {
         : colors.muted;
 
   // ----- the small buttons underneath -----
+  const linkedInvoiceEarly = related.some((r) => r.kind === 'invoice');
   const small: { label: string; onPress: () => void }[] = [];
   if (item) {
     if (item.kind === 'invoice' && item.status === 'requested') {
@@ -241,8 +242,8 @@ export default function JobScreen() {
       small.push({ label: t('Send again'), onPress: send });
     }
     if (item.kind === 'estimate' && item.status === 'sent') small.push({ label: t('Send again'), onPress: send });
-    if (item.kind === 'task' && item.status !== 'done' && !item.series_id)
-      small.push({ label: t('Job finished'), onPress: markDone });
+    if (item.kind === 'task' && item.status !== 'done' && !item.series_id && !linkedInvoiceEarly)
+      small.push({ label: t('Finished, no invoice'), onPress: markDone }); // the big button finishes AND makes the invoice
     if ((item.kind === 'task' || item.kind === 'note') && item.status === 'done')
       small.push({ label: t('Not done'), onPress: () => run(() => patchItem(item.id, { status: 'created' })) });
     if (item.status === 'paid') small.push({ label: t('Undo payment'), onPress: undo });
@@ -320,6 +321,31 @@ export default function JobScreen() {
 
       {item?.kind === 'task' || item?.kind === 'note' ? (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}>
+          {item.kind === 'task' && linkedInvoice && (
+            <Pressable
+              onPress={() => router.push({ pathname: '/job/[id]', params: { id: linkedInvoice.id } })}
+              accessibilityRole="link"
+              style={({ pressed }) => [styles.card, styles.invoiceCard, { backgroundColor: pressed ? colors.line : colors.card, borderColor: colors.line }]}>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={[styles.cardLabel, { color: colors.muted }]}>{t('INVOICE')}</Text>
+                <Text style={[styles.body, { color: colors.text, fontWeight: '700' }]}>
+                  {linkedInvoice.number} · {money(Number(linkedInvoice.total))}
+                </Text>
+                <Text
+                  style={[
+                    styles.small,
+                    { color: linkedInvoice.status === 'paid' ? kindColors.invoice : linkedInvoice.status === 'requested' ? kindColors.unpaid : colors.muted, fontWeight: '700' },
+                  ]}>
+                  {linkedInvoice.status === 'paid'
+                    ? t('✓ Paid')
+                    : linkedInvoice.status === 'requested'
+                      ? t('Sent · waiting for money')
+                      : t('Not sent yet')}
+                </Text>
+              </View>
+              <Text style={[styles.body, { color: colors.faint }]}>›</Text>
+            </Pressable>
+          )}
           {item.kind === 'task' && (
             <View style={[styles.card, { backgroundColor: colors.card }]}>
               <Text style={[styles.cardLabel, { color: colors.muted }]}>{t('WHAT')}</Text>
@@ -425,6 +451,7 @@ const styles = StyleSheet.create({
   topTitle: { fontSize: 17, fontWeight: '700' },
   topRight: { width: 90, alignItems: 'flex-end' },
   help: { fontSize: 14, marginTop: 2 },
+  invoiceCard: { flexDirection: 'row', alignItems: 'center', borderWidth: 1 },
   linkedToggle: { fontSize: 15, fontWeight: '700' },
   linked: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: radius.md, paddingHorizontal: 12, height: 42 },
   linkedDot: { width: 10, height: 10, borderRadius: 5 },

@@ -27,10 +27,10 @@ test('pay after the job: a done task without an invoice can still get one', () =
   assert.deepEqual(nextSteps({ kind: 'task', status: 'done', series_id: 's1' }), ['invoice-from-task']);
 });
 
-test('pay before the job: invoice -> Schedule the job -> task with just Job done -> Show invoice', () => {
+test('pay before the job: invoice -> Schedule the job -> task with just Job finished (the invoice is a card)', () => {
   assert.deepEqual(nextSteps({ kind: 'invoice', status: 'created' }), ['send-invoice', 'schedule']);
   assert.deepEqual(nextSteps({ kind: 'invoice', status: 'requested' }), ['mark-paid', 'schedule']);
   assert.deepEqual(nextSteps({ kind: 'invoice', status: 'paid' }), ['schedule']);
   assert.deepEqual(nextSteps({ kind: 'task', status: 'created' }, { hasInvoice: true }), ['done']);
-  assert.deepEqual(nextSteps({ kind: 'task', status: 'done' }, { hasInvoice: true }), ['open-invoice']);
+  assert.deepEqual(nextSteps({ kind: 'task', status: 'done' }, { hasInvoice: true }), []);
 });

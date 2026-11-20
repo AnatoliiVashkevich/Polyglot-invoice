@@ -1,7 +1,7 @@
 // The one big "next step" button on every job card (product-decisions.md §4, §6g, §6i):
 //   Estimate, Created  → Send estimate            Estimate, Sent → Schedule the job · Make invoice
 //   Task, no invoice yet   → Job done → Create invoice   (pay after the job)
-//   Task, already invoiced → ✓ Job done; when done → Show invoice   (paid before the job)
+//   Task, already invoiced → ✓ Job finished   (paid before the job; the invoice shows as a card on the task)
 //   Task done, no invoice yet → Make invoice
 //   Repeating task     → ✓ Done · Make invoice (smaller)      Note → ✓ Done
 //   Invoice, Created   → Send invoice · Schedule the job (when no task yet)
@@ -27,7 +27,7 @@ export function nextSteps(item: { kind: string; status: string; series_id?: stri
   if (item.kind === 'estimate') return item.status === 'created' ? ['send-estimate'] : ['schedule', 'make-invoice'];
   if (item.kind === 'note') return item.status === 'done' ? [] : ['done'];
   if (item.kind === 'task') {
-    if (item.status === 'done') return hasInvoice ? ['open-invoice'] : ['invoice-from-task'];
+    if (item.status === 'done') return hasInvoice ? [] : ['invoice-from-task'];
     if (hasInvoice) return ['done'];
     return item.series_id ? ['done', 'invoice-from-task'] : ['job-done'];
   }

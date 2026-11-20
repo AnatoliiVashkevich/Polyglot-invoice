@@ -293,7 +293,9 @@ the website address (polyglotinvoice.com) and a USPTO trademark search.
 - **§6i Two stories, no "mode" to pick** (owner, 2026-11-19): the job's linked stages decide the big button.
   - Pay after the job: Estimate → Schedule the job → task → **Job done → Create invoice** → Send → Paid.
   - Pay before the job: Estimate → Make invoice → Send → **Schedule the job** (on any invoice without a task yet;
-    the task keeps the invoice's prices) → task → **✓ Job done** → then **Show invoice**.
+    the task keeps the invoice's prices) → task → **✓ Job finished**.
+  - **A task always shows its invoice as a card** (number, amount, paid / sent / not sent), tap to open it, whatever
+    its status. No separate "Show invoice" button, and no small "Job finished" next to the big one.
   - A deposit (part before, the rest after) is planned with step 8.
 - **🔗 Linked** on every job card, hidden until tapped: the same job's other stages (estimate → task → invoice);
   tap one to open it.
