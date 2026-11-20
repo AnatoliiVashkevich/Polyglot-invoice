@@ -310,6 +310,17 @@ the website address (polyglotinvoice.com) and a USPTO trademark search.
   separate "New client" button.
 - History: finished jobs stay in the calendar (faded, ✓) and on the client's page; that is enough (owner, 2026-11-19).
 
+## 6k. Step 7, part 1: describe the work in one go (2026-11-19)
+
+- On the work step, at the top: **"✨ Describe it in one go"** — one field ("door installation 300, 2 double swing
+  doors installation and adjustment 700, hinges 3 at 12 each") and **Make lines**. The lines appear below, every one
+  editable; rows the user already filled stay. Typing lines by hand still works.
+- The AI (OpenAI, model gpt-5.4-mini) keeps the user's language and words, puts counts into Qty (not twice in the
+  text), splits a total by the count, marks bought things as Materials, never invents prices.
+- **Consent first** (App Store rule §2): the first time, "Use AI to make the lines? Your text is sent to OpenAI…
+  OpenAI does not use it to train its AI." → Not now / Yes, use AI. Without consent or without internet, the app's own
+  quick reader makes lines from the numbers typed, and says so.
+
 ## 13. Database (decided 2026-11-19)
 
 - The new app **reuses the crm-solo Supabase project and its keys**. Its old tables hold only test data and are
@@ -317,7 +328,8 @@ the website address (polyglotinvoice.com) and a USPTO trademark search.
 
 ## Still to decide (raised by the owner while testing step 5, 2026-11-19; remind the owner)
 
-1. **Easier work + price entry.** Ideas: one big field where the user writes the work and prices in their own words and
+1. ~~Easier work + price entry~~ → part 1 built, §6k (voice comes next).
+   Old note: **Easier work + price entry.** Ideas: one big field where the user writes the work and prices in their own words and
    we split it into lines ("door installation 300", Next line, "2 double swing doors installation and adjustment 700"),
    or a "type a line, tap Next line" flow. Discuss now and again when the AI is connected (step 8, voice): these
    screens will be reworked then anyway.

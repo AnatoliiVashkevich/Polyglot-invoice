@@ -12,6 +12,7 @@ from typing import Literal
 from fastapi import Depends, FastAPI, HTTPException, Response
 from pydantic import BaseModel, Field, field_validator
 
+import ai
 import auth
 import database as db
 import invoice_pdf
@@ -384,6 +385,20 @@ def get_next_number(kind: Literal["invoice", "estimate"] = "invoice", uid: str =
 @app.get("/api/items/{item_id}")
 def get_item(item_id: str, uid: str = Depends(auth.current_user)):
     return _with_client_names([_item_or_404(item_id, uid)], uid)[0]
+
+
+class LinesText(BaseModel):
+    text: str = Field(..., min_length=1, max_length=4000)
+
+
+@app.post("/api/ai/lines")
+def ai_lines(body: LinesText, uid: str = Depends(auth.current_user)):
+    """Step 7, part 1: "Describe the work and prices" -> clean lines the user then checks and edits.
+    503 when the AI isn't available: the app keeps the text and the user types the lines."""
+    try:
+        return {"lines": ai.text_to_lines(body.text)}
+    except ai.AiUnavailable as e:
+        raise HTTPException(503, str(e))
 
 
 @app.get("/api/items/{item_id}/related")

@@ -5,3 +5,4 @@ supabase>=2.10
 python-dotenv>=1.0
 tzdata                    # time zones on Windows ("today" in the user's time zone)
 reportlab>=4.0            # invoice PDFs
+openai>=1.50               # step 7: AI lines, voice, translations (ai.py)

@@ -30,6 +30,7 @@ import { AddressPicker } from '@/components/address-picker';
 import { CustomerStep } from '@/components/invoice/customer-step';
 import { MaterialsExpenseSheet, type PaidExpense } from '@/components/materials-expense-sheet';
 import { LANGUAGES, t, type Lang } from '@/i18n';
+import { describeToLines } from '@/lib/ai';
 import { api, ApiError } from '@/lib/api';
 import { addClientAddress, fetchClients, fetchNextNumber, fetchSettings, saveClient, type Client, type ClientDraft, type Settings } from '@/lib/clients';
 import { formatDay, isoDate, parseIso, todayIso } from '@/lib/dates';
@@ -86,6 +87,10 @@ export default function NewInvoiceScreen() {
   const [dueDays, setDueDays] = useState<DueDays>(0);
   const [number, setNumber] = useState('');
   const [taxOn, setTaxOn] = useState(true);
+  // step 7 part 1: "Describe it in one go" → lines (the AI, or the app's quick reader)
+  const [describe, setDescribe] = useState('');
+  const [describing, setDescribing] = useState(false);
+  const [describeNote, setDescribeNote] = useState('');
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -170,6 +175,29 @@ export default function NewInvoiceScreen() {
   const taxAppliesTo = (editing ? editing.tax_applies_to : settings?.tax_applies_to) ?? 'materials';
   const docLang: Lang = settings?.doc_language ?? 'en';
   const sum = totals(invoiceLines, taxOn ? taxRate : 0, taxAppliesTo);
+
+  const makeLines = async () => {
+    const text = describe.trim();
+    if (!text || describing) return;
+    setDescribing(true);
+    setDescribeNote('');
+    try {
+      const { lines, by } = await describeToLines(text);
+      if (!lines.length) return setDescribeNote(t('No lines found. Please write the work and the price, like: door installation 300.'));
+      const made = lines.map((l) => ({ key: newKey(), text: l.text, qty: String(l.qty ?? 1), price: l.price ? String(l.price) : '', kind: l.kind ?? 'work' }));
+      // the new lines replace empty rows; rows the user already filled stay
+      setWork((rows) => [...rows.filter((r) => r.text.trim() || r.price.trim()), ...made]);
+      setDescribe('');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setDescribeNote(
+        by === 'ai'
+          ? t('Done. Please check the lines below; you can change anything.')
+          : t('Made from the numbers you typed (without AI). Please check the lines below.'),
+      );
+    } finally {
+      setDescribing(false);
+    }
+  };
 
   // ----- moving between steps -----
   const go = (to: number) => {
@@ -396,6 +424,20 @@ export default function NewInvoiceScreen() {
       case 2:
         return (
           <View style={styles.gap}>
+            {/* describe everything in one go; the lines below can always be typed by hand too */}
+            <View style={[styles.describeCard, { backgroundColor: colors.card, borderColor: colors.accent }]}>
+              <Text style={[styles.describeTitle, { color: colors.text }]}>✨ {t('Describe it in one go')}</Text>
+              <TextInput
+                value={describe}
+                onChangeText={setDescribe}
+                placeholder={t('e.g. door installation 300, 2 double swing doors installation and adjustment 700, hinges 3 at 12 each')}
+                placeholderTextColor={colors.faint}
+                multiline
+                style={[styles.lineText, styles.lineBox, { color: colors.text, borderColor: colors.line, backgroundColor: colors.bg, minHeight: 80 }]}
+              />
+              <BigButton kind="second" title={t('Make lines')} onPress={makeLines} busy={describing} disabled={!describe.trim()} />
+              {!!describeNote && <Text style={[styles.small, { color: colors.muted }]}>{describeNote}</Text>}
+            </View>
             {work.map((w, i) => (
               <View key={w.key} style={[styles.lineCard, { backgroundColor: colors.card }]}>
                 <TextInput
@@ -403,7 +445,7 @@ export default function NewInvoiceScreen() {
                   onChangeText={(v) => setW(w.key, { text: v })}
                   placeholder={i === 0 ? t('e.g. Installed 2 doors, or the full scope of work') : t('Work')}
                   placeholderTextColor={colors.faint}
-                  autoFocus={i === 0 && !w.text}
+                  autoFocus={false}
                   multiline
                   style={[styles.lineText, styles.lineBox, { color: colors.text, borderColor: colors.line, backgroundColor: colors.bg }]}
                 />
@@ -644,6 +686,8 @@ const styles = StyleSheet.create({
   label: { fontSize: 13, fontWeight: '600', marginTop: 4 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   lineCard: { borderRadius: radius.md, padding: 12, gap: 10 },
+  describeCard: { borderRadius: radius.md, padding: 12, gap: 10, borderWidth: 1.5 },
+  describeTitle: { fontSize: 16, fontWeight: '700' },
   lineText: { fontSize: 17, minHeight: 28 },
   lineBox: { minHeight: 48, borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: 10, paddingTop: 12, paddingBottom: 12 },
   lineRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },

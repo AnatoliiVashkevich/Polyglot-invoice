@@ -8,8 +8,11 @@ Last updated: 2026-11-19. Update this file at the end of every session.
   pay-after (§6i), status teaching lines and "Is the job finished?" (§6j), client page Upcoming / History.
   Tests: server 86 (95% coverage, main.py 99%), app 47 (src/lib 100% lines). ✓ Done on notes stays (agreed earlier;
   the owner asked why, got the reason, did not ask to remove it).
-- **Next: Step 7 (voice and languages)** together with the "easier work + price entry" idea. Needs an AI key
-  (OpenAI per §2) in `server/.env` — ask the owner.
+- **Step 7 in progress.** Part 1 built (§6k): `server/ai.py` (OpenAI, `OPENAI_API_KEY` in `server/.env`, model
+  `AI_TEXT_MODEL` default gpt-5.4-mini), `POST /api/ai/lines`; app `src/lib/ai.ts` (consent + call),
+  `src/lib/quick-lines.ts` (offline reader), "✨ Describe it in one go" in `new-invoice.tsx`. Next parts: 🎤 voice
+  (transcribe → fill the questionnaire), translated PDF in the client's language, "Check in my language", fixing
+  translations. Windows: print Cyrillic from Python with `PYTHONIOENCODING=utf-8`.
 - **Step 5 is done and tested on the iPhone (2026-11-19).** Feedback fixed (product-decisions.md §6f): button and
   field frames, Work / Materials on every line (no Expenses screen; Create asks "Add these materials to your expenses?"),
   prices kept from estimate → task → invoice, "Pick from all contacts", "Choose the customer". The job card is
