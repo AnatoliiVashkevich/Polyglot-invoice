@@ -46,3 +46,26 @@ export function clientMoney(items: MoneyItem[]): { paid: number; owes: number } 
 export function newestFirst<T extends { date: string; time?: string }>(items: T[]): T[] {
   return [...items].sort((a, b) => (b.date + (b.time ?? '')).localeCompare(a.date + (a.time ?? '')));
 }
+
+/** The filter buttons on the client's page. */
+export const JOB_FILTERS = ['all', 'invoice', 'estimate', 'task', 'owes'] as const;
+export type JobFilter = (typeof JOB_FILTERS)[number];
+
+export function filterJobs<T extends MoneyItem>(items: T[], f: JobFilter): T[] {
+  if (f === 'all') return items;
+  if (f === 'owes') return items.filter((it) => it.kind === 'invoice' && it.status === 'requested');
+  return items.filter((it) => it.kind === f);
+}
+
+/** Jobs (already newest first) grouped by month: "2026-11" with how many and the invoiced amount. */
+export function monthGroups<T extends MoneyItem & { date: string }>(items: T[]) {
+  const groups: { month: string; items: T[]; invoiced: number }[] = [];
+  for (const it of items) {
+    const month = it.date.slice(0, 7);
+    let g = groups[groups.length - 1];
+    if (!g || g.month !== month) groups.push((g = { month, items: [], invoiced: 0 }));
+    g.items.push(it);
+    if (it.kind === 'invoice') g.invoiced = Math.round(g.invoiced * 100 + (it.amount ?? 0) * 100) / 100;
+  }
+  return groups;
+}

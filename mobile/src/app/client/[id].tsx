@@ -1,6 +1,8 @@
 // THE CLIENT'S PAGE (product-decisions.md §9b):
 //   name · Call / Text / Navigate · Paid total / Owes now · contacts, language, notes · their jobs, newest first.
-// The ＋ here pre-fills this client (the questionnaire starts at "check the customer's info"). ✏️ Edit → edit-client.
+// Jobs: filter buttons (All · Invoices · Estimates · Tasks · Owes), grouped by month, 20 at a time ("Show more"),
+// so a client with hundreds of jobs stays easy to read and fast.
+// The ＋ here pre-fills this client (the questionnaire starts at "check the client's info"). ✏️ Edit → edit-client.
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -10,13 +12,18 @@ import { DayRow } from '@/components/calendar/day-list';
 import { ContactBar } from '@/components/contact-bar';
 import { CreateButton } from '@/components/create-button';
 import { LANGUAGES, t } from '@/i18n';
-import { clientMoney, newestFirst } from '@/lib/client-tools';
+import { Chip } from '@/components/form';
+import { clientMoney, filterJobs, JOB_FILTERS, monthGroups, newestFirst, type JobFilter } from '@/lib/client-tools';
 import { getClient, type Client } from '@/lib/clients';
-import { formatDay } from '@/lib/dates';
 import { fetchClientItems } from '@/lib/items';
 import { money } from '@/lib/money';
 import { kindColors, radius, useColors } from '@/theme';
 import type { Item } from '@/types';
+
+const PAGE = 20;
+const FILTER_LABEL: Record<JobFilter, string> = { all: 'All', invoice: 'Invoices', estimate: 'Estimates', task: 'Tasks', owes: 'Owes' };
+const monthName = (month: string) =>
+  new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
 
 export default function ClientScreen() {
   const colors = useColors();
@@ -39,6 +46,14 @@ export default function ClientScreen() {
   );
 
   const sums = useMemo(() => clientMoney(items), [items]);
+  const [filter, setFilter] = useState<JobFilter>('all');
+  const [shownCount, setShownCount] = useState(PAGE);
+  const filtered = useMemo(() => filterJobs(items, filter), [items, filter]);
+  const groups = useMemo(() => monthGroups(filtered.slice(0, shownCount)), [filtered, shownCount]);
+  const choose = (f: JobFilter) => {
+    setFilter(f);
+    setShownCount(PAGE);
+  };
 
 
   return (
@@ -109,14 +124,35 @@ export default function ClientScreen() {
               <Text style={[styles.info, { color: colors.muted }]}>{t('No jobs yet. Tap ＋ to make an invoice, an estimate or a task for {name}.', { name: client.name })}</Text>
             </View>
           ) : (
-            items.map((it, i) => (
-              <View key={it.id} style={{ gap: 4 }}>
-                {(i === 0 || items[i - 1].date !== it.date) && (
-                  <Text style={[styles.date, { color: colors.muted }]}>{formatDay(it.date, 'en-US')}</Text>
-                )}
-                <DayRow item={it} onPress={() => router.push({ pathname: '/job/[id]', params: { id: it.id } })} />
-              </View>
-            ))
+            <>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                {JOB_FILTERS.map((f) => (
+                  <Chip key={f} label={`${t(FILTER_LABEL[f])} ${filterJobs(items, f).length}`} active={filter === f} onPress={() => choose(f)} />
+                ))}
+              </ScrollView>
+              {filtered.length === 0 && <Text style={[styles.info, { color: colors.muted }]}>{t('Nothing here.')}</Text>}
+              {groups.map((g) => (
+                <View key={g.month} style={{ gap: 6 }}>
+                  <Text style={[styles.month, { color: colors.muted }]}>
+                    {monthName(g.month)} · {g.items.length}
+                    {g.invoiced > 0 ? ` · ${money(g.invoiced)}` : ''}
+                  </Text>
+                  {g.items.map((it) => (
+                    <DayRow key={it.id} item={it} onPress={() => router.push({ pathname: '/job/[id]', params: { id: it.id } })} />
+                  ))}
+                </View>
+              ))}
+              {filtered.length > shownCount && (
+                <Pressable
+                  onPress={() => setShownCount((n) => n + PAGE)}
+                  accessibilityRole="button"
+                  style={({ pressed }) => [styles.more, { borderColor: colors.line, backgroundColor: pressed ? colors.line : colors.card }]}>
+                  <Text style={[styles.moreText, { color: colors.accent }]}>
+                    {t('Show more ({n} left)', { n: filtered.length - shownCount })}
+                  </Text>
+                </Pressable>
+              )}
+            </>
           )}
         </ScrollView>
       )}
@@ -140,6 +176,8 @@ const styles = StyleSheet.create({
   card: { borderRadius: radius.md, padding: 14, gap: 6 },
   info: { fontSize: 16 },
   section: { fontSize: 12, fontWeight: '700', letterSpacing: 0.6, marginTop: 4 },
-  date: { fontSize: 13, fontWeight: '600', marginLeft: 4 },
+  month: { fontSize: 13, fontWeight: '700', marginLeft: 4, marginTop: 6 },
+  more: { height: 46, borderRadius: radius.md, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  moreText: { fontSize: 15, fontWeight: '700' },
   error: { fontSize: 15, fontWeight: '600', textAlign: 'center', marginTop: 40, paddingHorizontal: 16 },
 });
