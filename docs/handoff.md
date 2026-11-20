@@ -3,6 +3,13 @@
 Last updated: 2026-11-19. Update this file at the end of every session.
 
 ## Status
+- **Latest (2026-11-19, end of the long session):** after step 6 the owner asked for, and got: clients improved
+  (§6h), repeating tasks and notes (§6g), Edit top right / Delete bottom, linked stages + the two stories pay-before /
+  pay-after (§6i), status teaching lines and "Is the job finished?" (§6j), client page Upcoming / History.
+  Tests: server 86 (95% coverage, main.py 99%), app 47 (src/lib 100% lines). ✓ Done on notes stays (agreed earlier;
+  the owner asked why, got the reason, did not ask to remove it).
+- **Next: Step 7 (voice and languages)** together with the "easier work + price entry" idea. Needs an AI key
+  (OpenAI per §2) in `server/.env` — ask the owner.
 - **Step 5 is done and tested on the iPhone (2026-11-19).** Feedback fixed (product-decisions.md §6f): button and
   field frames, Work / Materials on every line (no Expenses screen; Create asks "Add these materials to your expenses?"),
   prices kept from estimate → task → invoice, "Pick from all contacts", "Choose the customer". The job card is
