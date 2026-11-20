@@ -334,7 +334,8 @@ def create_item(body: ItemIn, uid: str = Depends(auth.current_user)):
     if kind in REPEATABLE and data.get("repeat"):
         data["repeat"] = {**data["repeat"], "start": data["date"]}
         data["series_id"] = str(uuid.uuid4())
-    if kind == "task" and source and source["kind"] == "estimate" and not data.get("lines"):
+    # a task scheduled from an estimate (or from an invoice paid before the job) keeps its work and prices
+    if kind == "task" and source and source["kind"] in ("estimate", "invoice") and not data.get("lines"):
         data["lines"] = source.get("lines") or []
         data.setdefault("tax_rate", float(source.get("tax_rate") or 0))
         data.setdefault("tax_applies_to", source.get("tax_applies_to") or "materials")

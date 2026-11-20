@@ -8,13 +8,12 @@ test('the big button for every stage', () => {
   assert.deepEqual(nextSteps({ kind: 'estimate', status: 'created' }), ['send-estimate']);
   assert.deepEqual(nextSteps({ kind: 'estimate', status: 'sent' }), ['schedule', 'make-invoice']);
   assert.deepEqual(nextSteps({ kind: 'task', status: 'created' }), ['job-done']);
-  assert.deepEqual(nextSteps({ kind: 'invoice', status: 'created' }), ['send-invoice']);
-  assert.deepEqual(nextSteps({ kind: 'invoice', status: 'requested' }), ['mark-paid']);
+  assert.deepEqual(nextSteps({ kind: 'invoice', status: 'created' }, { hasTask: true }), ['send-invoice']);
+  assert.deepEqual(nextSteps({ kind: 'invoice', status: 'requested' }, { hasTask: true }), ['mark-paid']);
 });
 
 test('finished jobs have no big button', () => {
-  assert.deepEqual(nextSteps({ kind: 'invoice', status: 'paid' }), []);
-  assert.deepEqual(nextSteps({ kind: 'task', status: 'done' }, true), []);
+  assert.deepEqual(nextSteps({ kind: 'invoice', status: 'paid' }, { hasTask: true }), []);
 });
 
 test('a repeating task: big Done, Make invoice smaller; a note: Done', () => {
@@ -23,8 +22,15 @@ test('a repeating task: big Done, Make invoice smaller; a note: Done', () => {
   assert.deepEqual(nextSteps({ kind: 'note', status: 'done' }), []);
 });
 
-test('a done task can still get its invoice, until one is made', () => {
+test('pay after the job: a done task without an invoice can still get one', () => {
   assert.deepEqual(nextSteps({ kind: 'task', status: 'done' }), ['invoice-from-task']);
   assert.deepEqual(nextSteps({ kind: 'task', status: 'done', series_id: 's1' }), ['invoice-from-task']);
-  assert.deepEqual(nextSteps({ kind: 'task', status: 'done' }, true), []);
+});
+
+test('pay before the job: invoice -> Schedule the job -> task with just Job done -> Show invoice', () => {
+  assert.deepEqual(nextSteps({ kind: 'invoice', status: 'created' }), ['send-invoice', 'schedule']);
+  assert.deepEqual(nextSteps({ kind: 'invoice', status: 'requested' }), ['mark-paid', 'schedule']);
+  assert.deepEqual(nextSteps({ kind: 'invoice', status: 'paid' }), ['schedule']);
+  assert.deepEqual(nextSteps({ kind: 'task', status: 'created' }, { hasInvoice: true }), ['done']);
+  assert.deepEqual(nextSteps({ kind: 'task', status: 'done' }, { hasInvoice: true }), ['open-invoice']);
 });

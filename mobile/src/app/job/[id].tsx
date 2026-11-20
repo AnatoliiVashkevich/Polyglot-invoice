@@ -130,6 +130,7 @@ export default function JobScreen() {
     if (step === 'mark-paid') return setPaying(true);
     if (step === 'schedule') return router.push({ pathname: '/new-task', params: { from: item.id } });
     if (step === 'done') return run(() => patchItem(item.id, { status: 'done' }));
+    if (step === 'open-invoice') return linkedInvoice && router.push({ pathname: '/job/[id]', params: { id: linkedInvoice.id } });
     // make-invoice (from an estimate) or job-done (from a task): the questionnaire, filled in
     router.push({ pathname: '/new-invoice', params: { from: item.id } });
   };
@@ -227,7 +228,8 @@ export default function JobScreen() {
     if (item.status === 'paid') small.push({ label: t('Undo payment'), onPress: undo });
     if (item.status !== 'paid') small.push({ label: t('Delete'), onPress: remove });
   }
-  const steps = item ? nextSteps(item, related.some((r) => r.kind === 'invoice')) : [];
+  const linkedInvoice = related.find((r) => r.kind === 'invoice');
+  const steps = item ? nextSteps(item, { hasInvoice: !!linkedInvoice, hasTask: related.some((r) => r.kind === 'task') }) : [];
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.bg, paddingTop: insets.top + 4 }]}>
@@ -302,7 +304,7 @@ export default function JobScreen() {
           )}
           {item.lines.length > 0 && (
             <View style={[styles.card, { backgroundColor: colors.card }]}>
-              <Text style={[styles.cardLabel, { color: colors.muted }]}>{t('PRICE (FROM THE ESTIMATE)')}</Text>
+              <Text style={[styles.cardLabel, { color: colors.muted }]}>{linkedInvoice ? t('PRICE (INVOICED)') : t('PRICE (FROM THE ESTIMATE)')}</Text>
               {item.lines.map((l, i) => (
                 <View key={i} style={styles.priceRow}>
                   <Text style={[styles.body, { color: colors.text, flex: 1 }]}>

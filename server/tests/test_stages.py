@@ -98,6 +98,16 @@ def test_linked_stages_estimate_task_invoice(api):
     assert kinds(other["id"]) == []
 
 
+def test_pay_before_the_job_invoice_then_schedule_the_job(api):
+    """Story 2 (§6i): estimate -> invoice (paid first) -> Schedule the job: the task keeps the prices and is linked."""
+    cid = new_client(api)["id"]
+    inv = api.post("/api/items", json={"kind": "invoice", "client_id": cid, "lines": LINES, "status": "paid"}).json()
+    task = api.post("/api/items", json={"kind": "task", "client_id": cid, "title": "Deck", "from_item_id": inv["id"]}).json()
+    assert task["total"] == 1800
+    assert [r["kind"] for r in api.get(f"/api/items/{task['id']}/related").json()] == ["invoice"]
+    assert api.get(f"/api/items/{inv['id']}").json()["status"] == "paid"   # scheduling doesn't touch the invoice
+
+
 def test_an_invoice_can_still_be_made_from_a_done_task(api):
     cid = new_client(api)["id"]
     task = api.post("/api/items", json={"kind": "task", "client_id": cid, "title": "Mount TV"}).json()
