@@ -373,6 +373,15 @@ the website address (polyglotinvoice.com) and a USPTO trademark search.
   Subtotal → **Discount 10% · Returning client −$50.00** → Sales tax → Total ("Discount" in all 5 languages).
   Stored as a line with kind "discount" (no database change).
 
+## 6p. One writing standard for lines (2026-11-19)
+
+- Every line, on estimates and invoices alike, **names the service or item**: "Door installation", "Seam caulking",
+  "Kitchen floor replacement", "Haircut" (Russian: "Установка двери", "Заделка швов"). No past or future verbs
+  ("Caulked the seams"), no "I/we", no period; capital letter only at the start; short, details after a comma.
+  The AI uses it for ✨ lines, its suggestions and all translations (older translations are redone). Lines typed by
+  hand stay as written in the user's language; their translation follows the standard.
+- Estimates have the same ✨ box and the same check on Next (one shared screen).
+
 ## 13. Database (decided 2026-11-19)
 
 - The new app **reuses the crm-solo Supabase project and its keys**. Its old tables hold only test data and are

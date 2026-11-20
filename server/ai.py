@@ -34,6 +34,14 @@ everyday sense. If a word fits several trades, choose the one closest to this wo
 {REPAIR_WORDS}"""
 
 
+# One writing standard for every line, on estimates and invoices alike (owner, 2026-11-19, §6p)
+LINE_STYLE = """LINE STYLE (the same on estimates and invoices):
+- Name the service or item as a noun phrase: "Door installation", "Seam caulking", "Kitchen floor replacement",
+  "Haircut", "Lawn mowing". In Russian: "Установка двери", "Герметизация швов"; Spanish: "Instalación de puerta".
+- No past or future verbs ("Caulked the seams", "Will install"), no "I/we", no period at the end.
+- Capital letter only at the start (and for names / brands). Short: about 2–8 words; add details after a comma
+  ("Door installation, 2 doors" is fine)."""
+
 LINES_RULES = """You turn the professional's description of their work into invoice lines.
 Rules:
 - One line per distinct piece of work or material. Keep the user's language and wording; just tidy it
@@ -47,39 +55,43 @@ Rules:
 - kind = "material" for things bought for the client (tile, hinges, paint, hair dye, parts), otherwise "work".
 - Never invent prices. A line without an amount gets price 0.
 - Amounts are US dollars; "1.5k" = 1500.
-- Write each line as short, professional invoice wording in the SAME language (a noun phrase, fixed spelling), without
-  changing the meaning: "съездил в магазин" -> "Поездка в магазин за материалами", "fixed the door thing" -> "Door repair".
+- Write each line in the LINE STYLE below, in the SAME language, with fixed spelling, without changing the meaning:
+  "съездил в магазин" -> "Поездка в магазин за материалами", "fixed the door thing" -> "Door repair".
 - When you are NOT sure what a part means, or it doesn't look like paid work or material for this trade (a typo you
   can't fix with confidence, an unknown word, a rude word, two possible meanings, "slept"): keep the user's words in
   text, and fill `question` — a short, polite question to the user
   in THEIR language ("Что вы имели в виду под «пердел»?") — and `suggestion` — your best guess as the tidy line text in
   their language ("Переделка работы"), or "" if you have no good guess. Otherwise question and suggestion are "".
   Never guess silently: a wrong word on an invoice embarrasses the user in front of their client.
-"""
+
+""" + LINE_STYLE
 
 TRANSLATE_RULES = """You translate the lines of the professional's invoice into {language} for their client.
 Rules:
 - Return exactly one translation per input line, in the same order.
-- Professional, short invoice wording in {language}, using the terms someone in this trade there would use.
+- Write every translation in the LINE STYLE below, using the terms someone in this trade there would use
+  ("Заделал швы" -> "Seam caulking", not "Caulked the seams").
 - Keep numbers, sizes, units, brand and product names as they are. Never add or drop information.
 - A line already in {language}: return it as it is (only fix obvious spelling).
 - FAITHFUL ABOVE ALL: each translation says what THAT line says. Never invent work, never borrow another line's
   meaning, never "clean up" a line into something else. If a line is rude, nonsense, a typo you can't fix, or not a
   paid service/material (e.g. "slept"), translate its literal meaning in neutral words and set odd = true.
 - For each line return: source (the line exactly as given), text (the translation), odd (true/false).
-"""
+
+""" + LINE_STYLE.replace("{", "{{").replace("}", "}}")
 
 CHECK_RULES = """You check the lines the professional typed for their invoice, before the client sees them.
 For each line return: source (the line exactly as given), question, suggestion.
 - question = "" when the line is clear, paid work or material for this trade (any language, short is fine).
 - Otherwise (a typo you can't fix with confidence, an unknown word, a rude word, two possible meanings, or something
   that is not paid work/material, like "slept"): question = a short, polite question to the user in THE LINE'S
-  language ("Что вы имели в виду под «пердел»?"), suggestion = your best guess as tidy line text in that language,
-  or "" if you have no good guess.
+  language ("Что вы имели в виду под «пердел»?"), suggestion = your best guess as line text in that language in the
+  LINE STYLE below, or "" if you have no good guess.
 - Don't ask about style, prices or quantities. Ask only when the client could misunderstand or be offended.
-"""
 
-TR_VERSION = 2   # translations made before this are made again (v1 could "clean up" odd lines into invented work)
+""" + LINE_STYLE
+
+TR_VERSION = 3   # translations made before this are made again (v1 could invent work; v2 had no LINE STYLE)
 
 LANGUAGE_NAMES = {"en": "English (US)", "es": "Spanish (as spoken in the USA)", "pt": "Portuguese (Brazilian)",
                   "ru": "Russian", "uk": "Ukrainian"}

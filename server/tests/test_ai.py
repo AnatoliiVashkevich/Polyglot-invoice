@@ -198,3 +198,11 @@ def test_lines_typed_by_hand_are_checked_on_next(api, monkeypatch):
     assert api.post("/api/ai/check", json={"texts": ["x"]}).status_code == 503
     use_fake(monkeypatch, answer=ai.AiChecks(items=[ai.AiCheck(source="1. other", question="?", suggestion="")]))
     assert api.post("/api/ai/check", json={"texts": ["x"]}).status_code == 503       # mixed up: refused
+
+
+def test_one_writing_standard_for_estimates_and_invoices():
+    """§6p: lines name the service ("Seam caulking"), never "Caulked the seams" — in lines, suggestions and translations."""
+    assert "Seam caulking" in ai.LINE_STYLE and "No past or future verbs" in ai.LINE_STYLE
+    assert ai.LINE_STYLE in ai.LINES_RULES and ai.LINE_STYLE in ai.CHECK_RULES
+    assert "No past or future verbs" in ai.TRANSLATE_RULES.format(language="English")
+    assert ai.TR_VERSION == 3   # older translations are redone in this style
