@@ -21,6 +21,7 @@ import {
   Text,
   TextInput,
   View,
+  type ScrollViewInstance,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -40,7 +41,16 @@ import { getItem, patchItem, sendInvoice, type ServerItem } from '@/lib/items';
 import { money } from '@/lib/money';
 import { radius, useColors } from '@/theme';
 
-type WorkRow = { key: string; text: string; qty: string; price: string; kind: LineKind; question?: string; suggestion?: string };
+type WorkRow = {
+  key: string;
+  text: string;
+  qty: string;
+  price: string;
+  kind: LineKind;
+  question?: string; // the AI isn't sure (§6n)
+  suggestion?: string;
+  noPrice?: boolean; // asked "Keep it at $0?" (§6o)
+};
 type DueDays = number; // 0 = Now; the chips offer 0 / 7 / 15 / 30
 
 const STEPS = ['Client', 'Check info', 'Work + prices', 'Date', 'Review'] as const;
@@ -94,6 +104,15 @@ export default function NewInvoiceScreen() {
   const [describeNote, setDescribeNote] = useState('');
   // texts the AI already looked at (made by it, checked, or "Keep as I wrote"), so Next doesn't ask twice
   const checked = useRef(new Set<string>());
+  // scrolling to the first line with a question (§6o): where the step body and each line card are
+  const scrollRef = useRef<ScrollViewInstance>(null);
+  const bodyY = useRef(0);
+  const lineY = useRef(new Map<string, number>());
+  const scrollToFirstAsk = (rows: WorkRow[]) => {
+    const first = rows.find((r) => r.question || r.noPrice);
+    if (!first) return;
+    scrollRef.current?.scrollTo({ y: Math.max(0, bodyY.current + (lineY.current.get(first.key) ?? 0) - 12), animated: true });
+  };
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -256,12 +275,20 @@ export default function NewInvoiceScreen() {
     if (step === 2) {
       if (workLines.length === 0) return setError(t('Please add the work and its price.'));
       if (workLines.some((l) => !l.text)) return setError(t('Please describe each line of work.'));
+      // a line without a price: ask "Keep it at $0?" under it (§6o), then scroll to the first question
+      const noPrice = work.filter((w) => w.text.trim() && !w.price.trim());
+      if (noPrice.length || work.some((w) => w.question || w.noPrice)) {
+        const keys = new Set(noPrice.map((w) => w.key));
+        const rows = work.map((w) => (keys.has(w.key) ? { ...w, noPrice: true } : w));
+        setWork(rows);
+        setTimeout(() => scrollToFirstAsk(rows), 50);
+        return setError(t('Please answer the question under the line first.'));
+      }
       if (workLines.some((l) => Number.isNaN(l.price) || Number.isNaN(l.qty)))
         return setError(t('Please check the prices: numbers only, like 200 or 64.50.'));
       // a typo guard (an extra zero), the same limits as the server
       if (workLines.some((l) => overLimit(l) === 'price')) return setError(t('One line can be at most $1,000,000. Please check for an extra zero.'));
       if (workLines.some((l) => overLimit(l) === 'qty')) return setError(t('Qty can be at most 100,000. Please check for an extra zero.'));
-      if (work.some((w) => w.question)) return setError(t('Please answer the question under the line first.'));
       // the AI looks at lines typed by hand before the client can see them (§6n)
       const fresh = work.filter((w) => w.text.trim() && !checked.current.has(w.text.trim()));
       if (fresh.length) {
@@ -270,7 +297,9 @@ export default function NewInvoiceScreen() {
         fresh.forEach((w) => checked.current.add(w.text.trim()));
         if (questions.length) {
           const asked = new Map(questions.map((q) => [fresh[q.index]?.key, q]));
-          setWork((rows) => rows.map((r) => (asked.has(r.key) ? { ...r, question: asked.get(r.key)!.question, suggestion: asked.get(r.key)!.suggestion || undefined } : r)));
+          const rows = work.map((r) => (asked.has(r.key) ? { ...r, question: asked.get(r.key)!.question, suggestion: asked.get(r.key)!.suggestion || undefined } : r));
+          setWork(rows);
+          setTimeout(() => scrollToFirstAsk(rows), 50);
           return setError(t('The AI has a question about {n} line(s). Please answer it, then tap Next.', { n: questions.length }));
         }
       }
@@ -469,7 +498,10 @@ export default function NewInvoiceScreen() {
               {!!describeNote && <Text style={[styles.small, { color: colors.muted }]}>{describeNote}</Text>}
             </View>
             {work.map((w, i) => (
-              <View key={w.key} style={[styles.lineCard, { backgroundColor: colors.card }]}>
+              <View
+                key={w.key}
+                onLayout={(e) => lineY.current.set(w.key, e.nativeEvent.layout.y)}
+                style={[styles.lineCard, { backgroundColor: colors.card }]}>
                 <TextInput
                   value={w.text}
                   onChangeText={(v) => setW(w.key, { text: v, question: undefined, suggestion: undefined })}
@@ -505,6 +537,15 @@ export default function NewInvoiceScreen() {
                     <Text style={[styles.small, { color: colors.muted }]}>{t('Or correct the text above.')}</Text>
                   </View>
                 )}
+                {!!w.noPrice && !w.price.trim() && (
+                  <View style={[styles.askBox, { borderColor: '#F59E0B', backgroundColor: colors.bg }]}>
+                    <Text style={[styles.askText, { color: colors.text }]}>💲 {t('No price on this line. Keep it at $0 (included in the job)?')}</Text>
+                    <View style={styles.chips}>
+                      <Chip label={t('Keep at $0')} active={false} onPress={() => setW(w.key, { price: '0', noPrice: undefined })} />
+                    </View>
+                    <Text style={[styles.small, { color: colors.muted }]}>{t('Or type the price below.')}</Text>
+                  </View>
+                )}
                 <View style={styles.chips}>
                   <Chip label={t('Work')} active={w.kind !== 'material'} onPress={() => setW(w.key, { kind: 'work' })} />
                   <Chip label={t('Materials')} active={w.kind === 'material'} onPress={() => setW(w.key, { kind: 'material' })} />
@@ -521,7 +562,7 @@ export default function NewInvoiceScreen() {
                   <Text style={[styles.small, { color: colors.muted }]}>× $</Text>
                   <TextInput
                     value={w.price}
-                    onChangeText={(v) => setW(w.key, { price: v })}
+                    onChangeText={(v) => setW(w.key, { price: v, noPrice: undefined })}
                     placeholder={t('Price')}
                     placeholderTextColor={colors.faint}
                     keyboardType="decimal-pad"
@@ -701,11 +742,13 @@ export default function NewInvoiceScreen() {
         <View style={[styles.progressFill, { backgroundColor: colors.accent, width: `${((step + 1) / STEPS.length) * 100}%` }]} />
       </View>
 
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+      <ScrollView ref={scrollRef} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
         {/* nothing until loaded: an invoice made from a task or an estimate opens on a later step */}
         {!!clients && !!settings && <Text style={[styles.title, { color: colors.text }]}>{title}</Text>}
         {!!clients && !!settings && !!subtitle && <Text style={[styles.subtitle, { color: colors.muted }]}>{subtitle}</Text>}
-        <View style={{ marginTop: 16 }}>{body()}</View>
+        <View style={{ marginTop: 16 }} onLayout={(e) => (bodyY.current = e.nativeEvent.layout.y)}>
+          {body()}
+        </View>
       </ScrollView>
 
       <MaterialsExpenseSheet materials={askMaterials} busy={busy} onAnswer={createNow} onClose={() => setAskMaterials(null)} />
