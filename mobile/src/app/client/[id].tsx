@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DayRow } from '@/components/calendar/day-list';
 import { ContactBar } from '@/components/contact-bar';
 import { CreateButton } from '@/components/create-button';
+import { EditButton } from '@/components/edit-button';
 import { LANGUAGES, t } from '@/i18n';
 import { Chip } from '@/components/form';
 import { addressOptions, clientMoney, filterJobs, mapsUrl, JOB_FILTERS, monthGroups, newestFirst, type JobFilter } from '@/lib/client-tools';
@@ -63,13 +64,7 @@ export default function ClientScreen() {
           <Text style={[styles.topBtn, { color: colors.accent }]}>‹ {t('Clients')}</Text>
         </Pressable>
         {client && (
-          <Pressable
-            onPress={() => router.push({ pathname: '/edit-client', params: { id: client.id } })}
-            hitSlop={12}
-            accessibilityRole="button"
-            style={({ pressed }) => [styles.editBtn, { borderColor: colors.line, backgroundColor: pressed ? colors.line : colors.card }]}>
-            <Text style={[styles.editText, { color: colors.text }]}>✏️ {t('Edit')}</Text>
-          </Pressable>
+          <EditButton onPress={() => router.push({ pathname: '/edit-client', params: { id: client.id } })} />
         )}
       </View>
 
@@ -179,8 +174,6 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 8, minHeight: 44 },
   topBtn: { fontSize: 17, fontWeight: '600' },
-  editBtn: { height: 36, paddingHorizontal: 14, borderRadius: radius.pill, borderWidth: 1, justifyContent: 'center' },
-  editText: { fontSize: 15, fontWeight: '600' },
   name: { fontSize: 28, fontWeight: '800', letterSpacing: -0.4 },
   sums: { flexDirection: 'row', gap: 8 },
   sum: { flex: 1, borderRadius: radius.md, padding: 12, gap: 2 },

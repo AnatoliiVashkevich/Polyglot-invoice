@@ -12,6 +12,7 @@ import { WebView } from 'react-native-webview';
 
 import { askScope } from '@/components/ask-scope';
 import { ContactBar } from '@/components/contact-bar';
+import { EditButton } from '@/components/edit-button';
 import { BigButton } from '@/components/form';
 import { MarkPaidSheet } from '@/components/mark-paid-sheet';
 import { t } from '@/i18n';
@@ -197,7 +198,6 @@ export default function JobScreen() {
       small.push({ label: t('Mark done'), onPress: () => run(() => patchItem(item.id, { status: 'done' })) });
     if ((item.kind === 'task' || item.kind === 'note') && item.status === 'done')
       small.push({ label: t('Not done'), onPress: () => run(() => patchItem(item.id, { status: 'created' })) });
-    if (item.status !== 'paid') small.push({ label: `✏️ ${t('Edit')}`, onPress: edit });
     if (item.status === 'paid') small.push({ label: t('Undo payment'), onPress: undo });
     if (item.status !== 'paid') small.push({ label: t('Delete'), onPress: remove });
   }
@@ -212,7 +212,7 @@ export default function JobScreen() {
         <Text style={[styles.topTitle, { color: colors.text }]}>
           {item ? (item.number ? `${t(KIND_LABEL[item.kind])} ${item.number}` : t(KIND_LABEL[item.kind])) : ''}
         </Text>
-        <View style={{ width: 90 }} />
+        <View style={styles.topRight}>{item && item.status !== 'paid' && <EditButton onPress={edit} />}</View>
       </View>
 
       {item && (
@@ -346,6 +346,7 @@ const styles = StyleSheet.create({
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 8 },
   topBtn: { fontSize: 17, fontWeight: '600', width: 90 },
   topTitle: { fontSize: 17, fontWeight: '700' },
+  topRight: { width: 90, alignItems: 'flex-end' },
   summary: { paddingHorizontal: 16, gap: 2, marginBottom: 10 },
   client: { fontSize: 20, fontWeight: '800' },
   status: { fontSize: 15, fontWeight: '700' },
