@@ -286,6 +286,11 @@ the website address (polyglotinvoice.com) and a USPTO trademark search.
   one to the client right there). The PDF shows JOB SITE when it isn't the billing address. On the client's page every
   address has its own **Navigate**.
 - The list of a client's jobs is called **History**.
+- **Leaving an invoice or estimate that isn't sent yet asks** "This invoice is not sent yet. Send it to the client
+  now?" → **Later** / **Send now** (owner, 2026-11-19).
+- **An invoice can still be made from a done task** ("Make invoice"), until one exists.
+- **🔗 Linked** on every job card, hidden until tapped: the same job's other stages (estimate → task → invoice);
+  tap one to open it.
 - **One place for Edit and Delete on every page:** **✏️ Edit** at the **top right** (a bit bigger, the same
   everywhere); **Delete** at the **bottom**, away from other buttons, so nothing is deleted by accident.
 - **On the Clients tab the ＋ menu offers "New client" first** (big), then Invoice · Estimate · Task · Expense; no
@@ -306,5 +311,5 @@ the website address (polyglotinvoice.com) and a USPTO trademark search.
 2. ~~Repeating tasks~~ → decided, §6g.
 3. ~~History~~ → decided, §6h (the calendar and the client's page are enough).
 4. ~~Notes~~ → decided, §6g.
-5. **Charging before the visit (prepayment / deposit):** today an invoice can already be made from an estimate before
+5. **Charging before the visit (prepayment / deposit)** — asked again 2026-11-19; planned with step 8 (Money): today an invoice can already be made from an estimate before
    the job ("Make invoice"). Still to discuss: a deposit (part now, the rest after the job) and how it shows.

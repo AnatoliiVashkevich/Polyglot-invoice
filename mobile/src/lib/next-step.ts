@@ -2,16 +2,17 @@
 //   Estimate, Created  → Send estimate            Estimate, Sent → Schedule the job · Make invoice
 //   Task (scheduled)   → Job done → Create invoice
 //   Repeating task     → ✓ Done · Make invoice (smaller)      Note → ✓ Done
+//   Task done, no invoice made from it yet → Make invoice (owner: an invoice must still be possible)
 //   Invoice, Created   → Send invoice             Invoice, Requested → Mark Paid        Paid → ✓ Done, no button
 // No imports with "@/": tested with plain Node.
 
 export type NextStep = 'send-estimate' | 'schedule' | 'make-invoice' | 'job-done' | 'done' | 'invoice-from-task' | 'send-invoice' | 'mark-paid';
 
-export function nextSteps(item: { kind: string; status: string; series_id?: string | null }): NextStep[] {
+export function nextSteps(item: { kind: string; status: string; series_id?: string | null }, hasInvoice = false): NextStep[] {
   if (item.kind === 'estimate') return item.status === 'created' ? ['send-estimate'] : ['schedule', 'make-invoice'];
   if (item.kind === 'note') return item.status === 'done' ? [] : ['done'];
   if (item.kind === 'task') {
-    if (item.status === 'done') return [];
+    if (item.status === 'done') return hasInvoice ? [] : ['invoice-from-task'];
     return item.series_id ? ['done', 'invoice-from-task'] : ['job-done'];
   }
   if (item.status === 'created') return ['send-invoice'];

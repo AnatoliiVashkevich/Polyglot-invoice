@@ -385,6 +385,34 @@ def get_item(item_id: str, uid: str = Depends(auth.current_user)):
     return _with_client_names([_item_or_404(item_id, uid)], uid)[0]
 
 
+@app.get("/api/items/{item_id}/related")
+def related_items(item_id: str, uid: str = Depends(auth.current_user)):
+    """The same job's other stages: what it was made from (estimate -> task -> invoice) and what was made from it,
+    oldest first. The job card shows them behind "Linked" so the user can jump between them."""
+    me = _item_or_404(item_id, uid)
+    rows = {r["id"]: r for r in db.list_rows("items", uid)}
+    children: dict[str, list[str]] = {}
+    for r in rows.values():
+        if r.get("from_item_id"):
+            children.setdefault(r["from_item_id"], []).append(r["id"])
+    root = me["id"]
+    seen = {root}
+    while rows.get(root, {}).get("from_item_id") in rows and rows[root]["from_item_id"] not in seen:
+        root = rows[root]["from_item_id"]
+        seen.add(root)
+    found, todo = [], [root]
+    done: set[str] = set()
+    while todo:
+        cur = todo.pop()
+        if cur in done:
+            continue
+        done.add(cur)
+        found.append(rows[cur])
+        todo.extend(children.get(cur, []))
+    others = sorted((r for r in found if r["id"] != me["id"]), key=lambda r: str(r.get("created_at", "")))
+    return _with_client_names(others, uid)
+
+
 @app.patch("/api/items/{item_id}")
 def patch_item(item_id: str, body: ItemFields, scope: Literal["one", "following"] = "one",
                uid: str = Depends(auth.current_user)):

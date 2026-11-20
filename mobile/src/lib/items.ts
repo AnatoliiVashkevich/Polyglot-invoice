@@ -64,6 +64,9 @@ export async function fetchClientItems(clientId: string): Promise<Item[]> {
   return rows.map(toItem);
 }
 
+/** The same job's other stages (estimate → task → invoice), oldest first. */
+export const fetchRelated = (id: string) => api<ServerItem[]>(`/api/items/${id}/related`);
+
 export const getItem = (id: string) => api<ServerItem>(`/api/items/${id}`);
 
 export const patchItem = (id: string, body: Record<string, unknown>, scope: Scope = 'one') =>

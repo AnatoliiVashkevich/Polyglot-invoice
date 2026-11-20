@@ -82,3 +82,26 @@ def test_materials_on_the_invoice_and_what_the_user_paid_counted_once(api, fake)
     assert [(e["amount"], e["item_id"]) for e in saved] == [(180, inv["id"])]   # the user paid 180, saved once
     later = api.post("/api/items", json={"kind": "invoice", "client_id": cid, "lines": lines}).json()   # "Later"
     assert later["total"] == 550 and len(fake.tables["expenses"]) == 1
+
+
+def test_linked_stages_estimate_task_invoice(api):
+    """The job card's "Linked": every stage of the same job, from any of them."""
+    cid = new_client(api)["id"]
+    est = api.post("/api/items", json={"kind": "estimate", "client_id": cid, "lines": LINES}).json()
+    task = api.post("/api/items", json={"kind": "task", "client_id": cid, "title": "Deck", "from_item_id": est["id"]}).json()
+    inv = api.post("/api/items", json={"kind": "invoice", "client_id": cid, "lines": LINES, "from_item_id": task["id"]}).json()
+    other = api.post("/api/items", json={"kind": "invoice", "client_id": cid, "lines": LINES}).json()
+    kinds = lambda item_id: [r["kind"] for r in api.get(f"/api/items/{item_id}/related").json()]
+    assert kinds(est["id"]) == ["task", "invoice"]
+    assert kinds(task["id"]) == ["estimate", "invoice"]
+    assert kinds(inv["id"]) == ["estimate", "task"]
+    assert kinds(other["id"]) == []
+
+
+def test_an_invoice_can_still_be_made_from_a_done_task(api):
+    cid = new_client(api)["id"]
+    task = api.post("/api/items", json={"kind": "task", "client_id": cid, "title": "Mount TV"}).json()
+    api.patch(f"/api/items/{task['id']}", json={"status": "done"})
+    inv = api.post("/api/items", json={"kind": "invoice", "client_id": cid, "from_item_id": task["id"],
+                                       "lines": [{"text": "Mount TV", "price": 250}]})
+    assert inv.status_code == 201 and api.get(f"/api/items/{task['id']}").json()["status"] == "done"

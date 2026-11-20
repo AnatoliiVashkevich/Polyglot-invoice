@@ -2,9 +2,11 @@
 // (product-decisions.md §4; lib/next-step.ts). Other actions are smaller, underneath.
 //   Estimate / invoice: the PDF preview.   Task / note: what, when, repeat, reminder.
 //   Repeating task / note (§6g): big ✓ Done; Edit and Delete ask "Only this one / This and all next ones".
+//   "🔗 Linked" (hidden until tapped): the same job's other stages; tap one to open it.
+//   Leaving an invoice / estimate that isn't sent yet asks "Send it now?".
 //   Invoice waiting for money: "Send a reminder" opens Messages with a ready, polite text (?remind=1 from the
 //   late-invoice notification opens it right away).
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams, usePreventRemove } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,7 +20,7 @@ import { MarkPaidSheet } from '@/components/mark-paid-sheet';
 import { t } from '@/i18n';
 import { fetchClients, fetchSettings, type Client, type Settings } from '@/lib/clients';
 import { formatDay, formatTime } from '@/lib/dates';
-import { deleteItem, getItem, patchItem, sendInvoice, undoPayment, type ServerItem } from '@/lib/items';
+import { deleteItem, fetchRelated, getItem, patchItem, sendInvoice, undoPayment, type ServerItem } from '@/lib/items';
 import { money } from '@/lib/money';
 import { NEXT_STEP_LABEL, nextSteps, type NextStep } from '@/lib/next-step';
 import { syncNotifications } from '@/lib/notifications';
@@ -42,11 +44,15 @@ export default function JobScreen() {
   const [busy, setBusy] = useState(false);
   const [paying, setPaying] = useState(false);
   const reminded = useRef(false);
+  const [related, setRelated] = useState<ServerItem[]>([]);
+  const [showLinked, setShowLinked] = useState(false);
+  const [leaving, setLeaving] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const [it, s, clients] = await Promise.all([getItem(id), fetchSettings(), fetchClients()]);
+      const [it, s, clients, rel] = await Promise.all([getItem(id), fetchSettings(), fetchClients(), fetchRelated(id).catch(() => [])]);
       setItem(it);
+      setRelated(rel);
       setSettings(s);
       setClient(clients.find((c) => c.id === it.client_id) ?? null);
       setError('');
@@ -102,6 +108,22 @@ export default function JobScreen() {
 
   const send = () => item && run(() => sendInvoice(item, settings?.doc_language ?? 'en'));
 
+  // not sent yet: ask before leaving (the back button, the swipe, or ‹ Calendar)
+  const unsent = !!item && (item.kind === 'invoice' || item.kind === 'estimate') && item.status === 'created' && !leaving;
+  const allowLeaving = usePreventRemove(unsent, ({ repeat }) => {
+    const what = item?.kind === 'estimate' ? t('estimate') : t('invoice');
+    Alert.alert(t('This {what} is not sent yet', { what }), t('Send it to the client now?'), [
+      {
+        text: t('Later'),
+        onPress: () => {
+          setLeaving(true);
+          repeat();
+        },
+      },
+      { text: t('Send now'), style: 'default', onPress: () => send() },
+    ]);
+  });
+
   const doStep = (step: NextStep) => {
     if (!item) return;
     if (step === 'send-estimate' || step === 'send-invoice') return send();
@@ -128,6 +150,8 @@ export default function JobScreen() {
       try {
         await deleteItem(item.id, scope);
         syncNotifications();
+        setLeaving(true);
+        allowLeaving();
         close();
       } catch (e) {
         Alert.alert(t(e instanceof Error ? e.message : 'Something went wrong.'));
@@ -143,6 +167,8 @@ export default function JobScreen() {
           try {
             await deleteItem(item.id);
             syncNotifications();
+            setLeaving(true);
+            allowLeaving();
             close();
           } catch (e) {
             Alert.alert(t(e instanceof Error ? e.message : 'Something went wrong.'));
@@ -201,7 +227,7 @@ export default function JobScreen() {
     if (item.status === 'paid') small.push({ label: t('Undo payment'), onPress: undo });
     if (item.status !== 'paid') small.push({ label: t('Delete'), onPress: remove });
   }
-  const steps = item ? nextSteps(item) : [];
+  const steps = item ? nextSteps(item, related.some((r) => r.kind === 'invoice')) : [];
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.bg, paddingTop: insets.top + 4 }]}>
@@ -236,6 +262,31 @@ export default function JobScreen() {
           {!!client && (
             <View style={{ marginTop: 8 }}>
               <ContactBar phone={client.phone} address={item.address || client.address} compact />
+            </View>
+          )}
+          {related.length > 0 && (
+            <View style={{ marginTop: 8, gap: 6 }}>
+              <Pressable onPress={() => setShowLinked((v) => !v)} accessibilityRole="button" hitSlop={6}>
+                <Text style={[styles.linkedToggle, { color: colors.accent }]}>
+                  🔗 {t('Linked')} ({related.length}) {showLinked ? '▴' : '▾'}
+                </Text>
+              </Pressable>
+              {showLinked &&
+                related.map((r) => (
+                  <Pressable
+                    key={r.id}
+                    onPress={() => router.push({ pathname: '/job/[id]', params: { id: r.id } })}
+                    accessibilityRole="link"
+                    style={({ pressed }) => [styles.linked, { borderColor: colors.line, backgroundColor: pressed ? colors.line : colors.card }]}>
+                    <View style={[styles.linkedDot, { backgroundColor: kindColors[r.kind === 'invoice' && r.status === 'requested' ? 'unpaid' : r.kind] }]} />
+                    <Text style={[styles.small, { color: colors.text, flex: 1 }]} numberOfLines={1}>
+                      {t(KIND_LABEL[r.kind])}
+                      {r.number ? ` ${r.number}` : ''} · {formatDay(r.date, 'en-US')}
+                      {r.kind === 'estimate' || r.kind === 'invoice' ? ` · ${money(Number(r.total))}` : ''}
+                    </Text>
+                    <Text style={[styles.small, { color: colors.faint }]}>›</Text>
+                  </Pressable>
+                ))}
             </View>
           )}
         </View>
@@ -347,6 +398,9 @@ const styles = StyleSheet.create({
   topBtn: { fontSize: 17, fontWeight: '600', width: 90 },
   topTitle: { fontSize: 17, fontWeight: '700' },
   topRight: { width: 90, alignItems: 'flex-end' },
+  linkedToggle: { fontSize: 15, fontWeight: '700' },
+  linked: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: radius.md, paddingHorizontal: 12, height: 42 },
+  linkedDot: { width: 10, height: 10, borderRadius: 5 },
   summary: { paddingHorizontal: 16, gap: 2, marginBottom: 10 },
   client: { fontSize: 20, fontWeight: '800' },
   status: { fontSize: 15, fontWeight: '700' },

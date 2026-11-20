@@ -14,11 +14,17 @@ test('the big button for every stage', () => {
 
 test('finished jobs have no big button', () => {
   assert.deepEqual(nextSteps({ kind: 'invoice', status: 'paid' }), []);
-  assert.deepEqual(nextSteps({ kind: 'task', status: 'done' }), []);
+  assert.deepEqual(nextSteps({ kind: 'task', status: 'done' }, true), []);
 });
 
 test('a repeating task: big Done, Make invoice smaller; a note: Done', () => {
   assert.deepEqual(nextSteps({ kind: 'task', status: 'created', series_id: 's1' }), ['done', 'invoice-from-task']);
   assert.deepEqual(nextSteps({ kind: 'note', status: 'created' }), ['done']);
   assert.deepEqual(nextSteps({ kind: 'note', status: 'done' }), []);
+});
+
+test('a done task can still get its invoice, until one is made', () => {
+  assert.deepEqual(nextSteps({ kind: 'task', status: 'done' }), ['invoice-from-task']);
+  assert.deepEqual(nextSteps({ kind: 'task', status: 'done', series_id: 's1' }), ['invoice-from-task']);
+  assert.deepEqual(nextSteps({ kind: 'task', status: 'done' }, true), []);
 });
