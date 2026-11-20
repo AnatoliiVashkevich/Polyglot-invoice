@@ -27,6 +27,7 @@ export type Settings = {
   address: string;
   payment_info: string;
   doc_language: Lang;
+  app_language?: Lang; // the user's own language (writing, "Check in my language")
   tax_rate: number | string;
   tax_applies_to: TaxAppliesTo;
   due_days: 0 | 7 | 15 | 30;

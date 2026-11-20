@@ -10,7 +10,9 @@ Last updated: 2026-11-19. Update this file at the end of every session.
   the owner asked why, got the reason, did not ask to remove it).
 - **Step 7 in progress.** Part 1 built (§6k): `server/ai.py` (OpenAI, `OPENAI_API_KEY` in `server/.env`, model
   `AI_TEXT_MODEL` default gpt-5.4-mini), `POST /api/ai/lines`; app `src/lib/ai.ts` (consent + call),
-  `src/lib/quick-lines.ts` (offline reader), "✨ Describe it in one go" in `new-invoice.tsx`. Next parts: 🎤 voice
+  `src/lib/quick-lines.ts` (offline reader), "✨ Describe it in one go" in `new-invoice.tsx`. Part 2 built (§6l):
+  `ai.translate_texts` + `_translated()` in main.py (cached per line in `lines[].tr`), language switch on the job card,
+  languages in Settings. Tests never call the real AI (conftest `no_real_ai`). Next parts: 🎤 voice
   (transcribe → fill the questionnaire), translated PDF in the client's language, "Check in my language", fixing
   translations. Windows: print Cyrillic from Python with `PYTHONIOENCODING=utf-8`.
 - **Step 5 is done and tested on the iPhone (2026-11-19).** Feedback fixed (product-decisions.md §6f): button and

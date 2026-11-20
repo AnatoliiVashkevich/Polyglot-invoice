@@ -321,6 +321,20 @@ the website address (polyglotinvoice.com) and a USPTO trademark search.
   OpenAI does not use it to train its AI." → Not now / Yes, use AI. Without consent or without internet, the app's own
   quick reader makes lines from the numbers typed, and says so.
 
+## 6l. Step 7, part 2: the invoice in the document language (2026-11-19)
+
+- The user writes and checks the lines in their own language (e.g. Russian); **the PDF comes out in the invoice
+  language** (Settings → Invoice language, e.g. English). The app keeps the user's words; each line is translated
+  once and remembered, and only a changed line is translated again. Without the AI the PDF keeps the user's words.
+- **The AI knows the trade** (owner): a home-repair contractor, so "пол" = floor (never gender), "затирка" = grout,
+  "плинтус" = baseboard… And it tidies the user's words into invoice wording in the same language ("съездил в
+  магазин" → "Поездка в магазин за материалами") without changing the meaning.
+- **"Check in my language":** above the invoice preview, a switch **English · sent | Русский · check**.
+- **Settings (for now):** **Your language** (you write and check in it; the screens follow in step 9) and **Invoice
+  language**.
+- Still to do in step 7: the client's extra copy in their language (how to send two files is to be decided), voice,
+  fixing a translation by hand, translating the terms.
+
 ## 13. Database (decided 2026-11-19)
 
 - The new app **reuses the crm-solo Supabase project and its keys**. Its old tables hold only test data and are

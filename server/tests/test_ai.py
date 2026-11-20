@@ -58,3 +58,76 @@ def test_no_ai_says_so_and_the_app_keeps_the_text(api, monkeypatch):
 
 def test_empty_text_and_signed_out_are_refused(api):
     assert api.post("/api/ai/lines", json={"text": ""}).status_code == 422
+
+
+# ---------- step 7 part 2: the PDF in the document language ----------
+class FakeTranslator:
+    """Answers like the AI: one translation per line, in order. Counts the lines it was asked to translate."""
+    WORDS = {"Перестилка пола на кухне": "Kitchen floor reinstallation", "Поездка в магазин": "Trip to the store",
+             "Замена плинтуса": "Baseboard replacement"}
+
+    def __init__(self):
+        self.asked = []
+
+    def parse(self, **kw):
+        texts = [t.split(". ", 1)[1] for t in kw["input"].split("\n")]
+        self.asked += texts
+        into = kw["instructions"].split("into ", 1)[1].split(" for ", 1)[0]
+
+        def one(t):
+            return self.WORDS.get(t, t) if into.startswith("English") else f"ES:{t}" if into.startswith("Spanish") else t
+        return NS(output_parsed=ai.AiTexts(texts=[f"{i + 1}. {one(t)}" for i, t in enumerate(texts)]))
+
+
+def ru_invoice(api):
+    cid = api.post("/api/clients", json={"name": "Ann Lee"}).json()["id"]
+    return api.post("/api/items", json={"kind": "invoice", "client_id": cid, "date": "2026-11-19", "lines": [
+        {"text": "Перестилка пола на кухне", "qty": 1, "price": 1200}, {"text": "Поездка в магазин", "price": 50}]}).json()
+
+
+def test_lines_written_in_russian_come_out_in_english_and_are_remembered(api, monkeypatch, fake):
+    from tests.test_invoice_flow import pdf_text
+    tr = FakeTranslator()
+    monkeypatch.setattr(ai, "_client", lambda: NS(responses=tr))
+    inv = ru_invoice(api)
+    text = pdf_text(api, inv["id"])
+    assert "Kitchen floor reinstallation" in text and "Trip to the store" in text and "Перестилка" not in text
+    assert len(tr.asked) == 2
+    pdf_text(api, inv["id"])
+    assert len(tr.asked) == 2                                    # remembered: not translated again
+    stored = api.get(f"/api/items/{inv['id']}").json()["lines"]
+    assert stored[0]["text"] == "Перестилка пола на кухне"       # the user's own words stay in the app
+    assert stored[0]["tr"]["en"] == {"src": "Перестилка пола на кухне", "text": "Kitchen floor reinstallation"}
+
+
+def test_only_a_changed_line_is_translated_again(api, monkeypatch):
+    from tests.test_invoice_flow import pdf_text
+    tr = FakeTranslator()
+    monkeypatch.setattr(ai, "_client", lambda: NS(responses=tr))
+    inv = ru_invoice(api)
+    pdf_text(api, inv["id"])
+    api.patch(f"/api/items/{inv['id']}", json={"lines": [{"text": "Перестилка пола на кухне", "price": 1200},
+                                                          {"text": "Замена плинтуса", "price": 90}]})
+    text = pdf_text(api, inv["id"])
+    assert "Baseboard replacement" in text and tr.asked[2:] == ["Замена плинтуса"]
+
+
+def test_check_in_my_language_and_the_clients_language(api, monkeypatch):
+    from tests.test_invoice_flow import pdf_text
+    tr = FakeTranslator()
+    monkeypatch.setattr(ai, "_client", lambda: NS(responses=tr))
+    inv = ru_invoice(api)
+    assert "Перестилка пола на кухне" in pdf_text(api, inv["id"], lang="ru")   # the user's own words
+    assert "ES:Перестилка пола на кухне" in pdf_text(api, inv["id"], lang="es")
+
+
+def test_without_the_ai_the_pdf_still_works_with_the_users_words(api):
+    from tests.test_invoice_flow import pdf_text
+    inv = ru_invoice(api)                       # conftest: the AI is offline
+    assert "Перестилка пола на кухне" in pdf_text(api, inv["id"])
+    assert "tr" not in api.get(f"/api/items/{inv['id']}").json()["lines"][0]
+
+
+def test_the_translation_rules_carry_the_trade_context():
+    assert "never gender" in ai.TRANSLATE_RULES and "{language}" in ai.TRANSLATE_RULES
+    assert "Поездка в магазин за материалами" in ai.LINES_RULES

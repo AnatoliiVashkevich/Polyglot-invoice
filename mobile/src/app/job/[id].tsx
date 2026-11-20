@@ -4,6 +4,7 @@
 //   Repeating task / note (§6g): big ✓ Done; Edit and Delete ask "Only this one / This and all next ones".
 //   "🔗 Linked" (hidden until tapped): the same job's other stages; tap one to open it.
 //   Leaving an invoice / estimate that isn't sent yet asks "Send it now?".
+//   The preview switches between the invoice language (what is sent) and "Check in my language" (step 7, §9).
 //   Invoice waiting for money: "Send a reminder" opens Messages with a ready, polite text (?remind=1 from the
 //   late-invoice notification opens it right away).
 import { router, useFocusEffect, useLocalSearchParams, usePreventRemove } from 'expo-router';
@@ -17,7 +18,7 @@ import { ContactBar } from '@/components/contact-bar';
 import { EditButton } from '@/components/edit-button';
 import { BigButton } from '@/components/form';
 import { MarkPaidSheet } from '@/components/mark-paid-sheet';
-import { t } from '@/i18n';
+import { LANGUAGES, t, type Lang } from '@/i18n';
 import { fetchClients, fetchSettings, type Client, type Settings } from '@/lib/clients';
 import { formatDay, formatTime } from '@/lib/dates';
 import { deleteItem, fetchRelated, getItem, patchItem, sendInvoice, undoPayment, type ServerItem } from '@/lib/items';
@@ -53,6 +54,7 @@ export default function JobScreen() {
   const [related, setRelated] = useState<ServerItem[]>([]);
   const [showLinked, setShowLinked] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [previewLang, setPreviewLang] = useState<Lang | null>(null); // null = the invoice language
 
   const load = useCallback(async () => {
     try {
@@ -64,14 +66,14 @@ export default function JobScreen() {
       setError('');
       if (it.kind === 'estimate' || it.kind === 'invoice') {
         cleanOldPdfs();
-        setPdfUri((await downloadPdf(it, s.doc_language)).uri);
+        setPdfUri((await downloadPdf(it, previewLang ?? s.doc_language)).uri); // the first time, translating takes a moment
       }
       return { it, s, client: clients.find((c) => c.id === it.client_id) ?? null };
     } catch (e) {
       setError(t(e instanceof Error ? e.message : 'Could not load.'));
       return null;
     }
-  }, [id]);
+  }, [id, previewLang]);
 
   // the ready reminder message for the client: Messages with the text filled in (or the share sheet)
   const sendReminder = useCallback(async (it: ServerItem, s: Settings | null, c: Client | null) => {
@@ -393,6 +395,30 @@ export default function JobScreen() {
           </View>
         </ScrollView>
       ) : (
+        <>
+        {!!settings?.app_language && settings.app_language !== settings.doc_language && (
+          <View style={styles.langSwitch}>
+            {[settings.doc_language, settings.app_language].map((l, i) => {
+              const active = (previewLang ?? settings.doc_language) === l;
+              return (
+                <Pressable
+                  key={l}
+                  onPress={() => {
+                    if (active) return;
+                    setPdfUri('');
+                    setPreviewLang(i === 0 ? null : l);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  style={[styles.langBtn, { borderColor: active ? colors.text : colors.line, backgroundColor: active ? colors.text : colors.card }]}>
+                  <Text style={[styles.langText, { color: active ? colors.bg : colors.text }]} numberOfLines={1}>
+                    {LANGUAGES[l]} · {i === 0 ? t('sent') : t('check')}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
         <View style={[styles.preview, { backgroundColor: colors.card, borderColor: colors.line }]}>
           {pdfUri ? (
             <WebView source={{ uri: pdfUri }} originWhitelist={['*']} allowFileAccess style={{ flex: 1, backgroundColor: 'transparent' }} />
@@ -408,6 +434,7 @@ export default function JobScreen() {
             </View>
           )}
         </View>
+        </>
       )}
 
       {item && (
@@ -452,6 +479,9 @@ const styles = StyleSheet.create({
   topRight: { width: 90, alignItems: 'flex-end' },
   help: { fontSize: 14, marginTop: 2 },
   invoiceCard: { flexDirection: 'row', alignItems: 'center', borderWidth: 1 },
+  langSwitch: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, marginBottom: 8 },
+  langBtn: { flex: 1, height: 38, borderRadius: radius.pill, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
+  langText: { fontSize: 14, fontWeight: '700' },
   linkedToggle: { fontSize: 15, fontWeight: '700' },
   linked: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: radius.md, paddingHorizontal: 12, height: 42 },
   linkedDot: { width: 10, height: 10, borderRadius: 5 },

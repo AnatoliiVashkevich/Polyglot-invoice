@@ -21,6 +21,7 @@ from money import totals
 from numbering import next_free, next_number
 
 logging.basicConfig(level=logging.INFO)
+log = logging.getLogger("polyglot")
 app = FastAPI(title="Polyglot Invoice")
 app.include_router(auth.router)
 
@@ -207,6 +208,8 @@ class Line(BaseModel):
     qty: float = Field(1, ge=0, le=100000)
     price: float = Field(0, ge=-1000000, le=1000000)
     kind: Literal["work", "material"] = "work"
+    # translations made for the PDFs: {"en": {"src": the text it was made from, "text": the translation}}
+    tr: dict[str, dict[str, str]] | None = None
 
 
 class Repeat(BaseModel):
@@ -446,6 +449,8 @@ def patch_item(item_id: str, body: ItemFields, scope: Literal["one", "following"
             return _patch_following(old, data, uid)
     if "lines" in data and data["lines"] is None:
         data["lines"] = []
+    if data.get("lines"):
+        data["lines"] = _carry_translations(old.get("lines") or [], data["lines"])
     if old["status"] == "paid" and data.get("status", "paid") == "paid" and set(data) - PAID_EDITABLE:
         raise HTTPException(409, "A paid invoice is locked. Undo the payment to edit it.")
     status = data.get("status") or old["status"]
@@ -467,16 +472,48 @@ def patch_item(item_id: str, body: ItemFields, scope: Literal["one", "following"
     return _with_client_names([row], uid)[0]
 
 
+def _carry_translations(old_lines: list[dict], new_lines: list[dict]) -> list[dict]:
+    """An edited line list keeps the translations of lines whose text is the same (only changed lines are redone)."""
+    known = {(line.get("text") or ""): line.get("tr") for line in old_lines if line.get("tr")}
+    out = []
+    for line in new_lines:
+        line = {k: v for k, v in line.items() if v is not None}
+        if not line.get("tr") and known.get(line.get("text") or ""):
+            line["tr"] = known[line.get("text") or ""]
+        out.append(line)
+    return out
+
+
+def _translated(item: dict, lang: str, uid: str) -> dict:
+    """The item with its line texts in `lang` for the PDF (§9). Each line is translated once, in the trade sense
+    (ai.CONTEXT), and remembered; a changed line is translated again. No AI -> the PDF keeps the user's words."""
+    lines = [dict(line) for line in item.get("lines") or []]
+    todo = [i for i, line in enumerate(lines)
+            if line.get("text") and ((line.get("tr") or {}).get(lang) or {}).get("src") != line["text"]]
+    if todo:
+        try:
+            done = ai.translate_texts([lines[i]["text"] for i in todo], lang)
+            for i, text in zip(todo, done):
+                lines[i]["tr"] = {**(lines[i].get("tr") or {}), lang: {"src": lines[i]["text"], "text": text}}
+            db.update_row("items", item["id"], {"lines": lines}, uid)   # remembered (updated_at stays: not a user edit)
+        except ai.AiUnavailable:
+            log.warning("PDF without translation (%s)", lang)
+    shown = [{**line, "text": ((line.get("tr") or {}).get(lang) or {}).get("text") or line.get("text", "")}
+             if ((line.get("tr") or {}).get(lang) or {}).get("src") == line.get("text") else line for line in lines]
+    return {**item, "lines": shown}
+
+
 @app.get("/api/items/{item_id}/pdf")
 def item_pdf(item_id: str, lang: Lang | None = None, uid: str = Depends(auth.current_user)):
-    """The invoice / estimate as a PDF, in the document language (Settings) unless ?lang= is given."""
+    """The invoice / estimate as a PDF, in the document language (Settings) unless ?lang= is given
+    ("Check in my language" asks for the user's language). The lines are translated into that language."""
     item = _item_or_404(item_id, uid)
     if item["kind"] in ("task", "note"):
         raise HTTPException(400, "A task has no PDF.")
     business = _business(uid)
     client = db.get_row("clients", item["client_id"], uid) if item.get("client_id") else None
     lang = lang or business.get("doc_language") or "en"
-    pdf = invoice_pdf.build_pdf(item, client or {}, business, lang)
+    pdf = invoice_pdf.build_pdf(_translated(item, lang, uid), client or {}, business, lang)
     name = invoice_pdf.file_name(item, lang)
     return Response(pdf, media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="{name}"'})
 
