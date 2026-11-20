@@ -341,6 +341,9 @@ the website address (polyglotinvoice.com) and a USPTO trademark search.
   Cleaning, Landscaping / lawn care, Painting, Plumbing, Electrical, HVAC, Flooring / tile, Moving, Auto repair,
   Hair / beauty, Pet care, Tutoring / lessons, IT / computer help, Photography) and **Other** (free text). For anyone:
   a hairdresser, a tutor… (owner). Also asked in the first-launch setup (step 9).
+- For now it sits on the main Settings page for testing; in step 9 Settings becomes groups (Business › Invoices ›
+  App › Account › About, §11): "What kind of work do you do?" goes under **Business**, the invoice language under
+  **Invoices**, your language under **App** (owner, 2026-11-19).
 - The AI reads every word in that work's sense ("укладка": a blowout for a hair salon, sod for lawn care). Before a
   choice: a neutral small service business, no construction guesses. The repair glossary ("пол" = floor) stays as help.
 
