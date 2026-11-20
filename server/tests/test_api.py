@@ -150,12 +150,14 @@ def test_invoice_uses_settings_for_tax_due_date_and_terms(api):
     assert inv["due_date"] == "2026-12-04" and inv["terms"] == "1-year warranty on labor"
 
 
-def test_invoice_and_estimate_need_a_customer_task_does_not(api):
-    assert api.post("/api/items", json={"kind": "invoice", "title": "x"}).status_code == 400
-    assert api.post("/api/items", json={"kind": "estimate", "title": "x"}).status_code == 400
-    r = api.post("/api/items", json={"kind": "task", "title": "Pick up tile", "date": "2026-11-20", "time": "16:30",
-                                     "reminder_minutes": 60})
-    assert r.status_code == 201 and r.json()["client_name"] == ""
+def test_invoice_estimate_and_task_need_a_client_a_note_has_none(api):
+    """§6g: a task always has a client; anything without one is a note."""
+    for kind in ("invoice", "estimate", "task"):
+        assert api.post("/api/items", json={"kind": kind, "title": "x"}).status_code == 400
+    cid = new_client(api)["id"]
+    r = api.post("/api/items", json={"kind": "note", "title": "Pick up tile", "date": "2026-11-20", "time": "16:30",
+                                     "reminder_minutes": 60, "client_id": cid})
+    assert r.status_code == 201 and r.json()["client_id"] is None and r.json()["client_name"] == ""
 
 
 def test_status_must_fit_the_kind(api):
@@ -274,8 +276,10 @@ def test_paid_invoice_pdf_and_no_pdf_for_tasks(api):
     inv = new_invoice(api, new_client(api)["id"])
     api.patch(f"/api/items/{inv['id']}", json={"status": "paid", "payment_method": "Zelle"})
     assert api.get(f"/api/items/{inv['id']}/pdf").status_code == 200
-    task = api.post("/api/items", json={"kind": "task", "title": "Look at the deck"}).json()
+    task = api.post("/api/items", json={"kind": "task", "title": "Look at the deck", "client_id": inv["client_id"]}).json()
     assert api.get(f"/api/items/{task['id']}/pdf").status_code == 400
+    note = api.post("/api/items", json={"kind": "note", "title": "Call the supplier"}).json()
+    assert api.get(f"/api/items/{note['id']}/pdf").status_code == 400
     assert client_as(OTHER).get(f"/api/items/{inv['id']}/pdf").status_code == 404
 
 

@@ -4,6 +4,7 @@ Every route below /api (except sign-in) needs the signed-in user (auth.current_u
 Product rules: docs/product-decisions.md.
 """
 import logging
+import uuid
 from decimal import Decimal
 from datetime import date, datetime, timedelta, timezone
 from typing import Literal
@@ -14,6 +15,7 @@ from pydantic import BaseModel, Field, field_validator
 import auth
 import database as db
 import invoice_pdf
+import repeat as rep
 from money import totals
 from numbering import next_free, next_number
 
@@ -22,10 +24,11 @@ app = FastAPI(title="Polyglot Invoice")
 app.include_router(auth.router)
 
 Lang = Literal["en", "es", "pt", "ru", "uk"]
-Kind = Literal["task", "estimate", "invoice"]
+Kind = Literal["task", "estimate", "invoice", "note"]
 Status = Literal["created", "done", "sent", "requested", "paid"]
 STATUSES: dict[str, set[str]] = {
     "task": {"created", "done"},
+    "note": {"created", "done"},
     "estimate": {"created", "sent"},
     "invoice": {"created", "requested", "paid"},
 }
@@ -205,6 +208,18 @@ class Line(BaseModel):
     kind: Literal["work", "material"] = "work"
 
 
+class Repeat(BaseModel):
+    """Repeating tasks and notes (§6g): every N days / weeks / months / years, until a date or no end."""
+    every: int = Field(1, ge=1, le=365)
+    unit: Literal["day", "week", "month", "year"]
+    until: str | None = None
+
+    @field_validator("until")
+    @classmethod
+    def _until(cls, v):
+        return _date(v)
+
+
 class ItemFields(BaseModel):
     client_id: str | None = None
     status: Status | None = None
@@ -222,6 +237,7 @@ class ItemFields(BaseModel):
     paid_date: str | None = None
     payment_method: str | None = Field(None, max_length=50)
     from_item_id: str | None = None
+    repeat: Repeat | None = None   # tasks and notes only; None in a PATCH = stop repeating
 
     @field_validator("date", "due_date", "paid_date")
     @classmethod
@@ -290,6 +306,8 @@ def list_items(start: str | None = None, end: str | None = None, client_id: str 
                uid: str = Depends(auth.current_user)):
     """The calendar asks for a date range (start / end, YYYY-MM-DD); the client page asks by client_id."""
     eq = {"client_id": client_id} if client_id else {}
+    if end:
+        _extend_series(uid, _date(end))
     rows = db.list_rows("items", uid, order="date",
                         gte={"date": _date(start)} if start else None,
                         lte={"date": _date(end)} if end else None, **eq)
@@ -303,17 +321,24 @@ def create_item(body: ItemIn, uid: str = Depends(auth.current_user)):
     data.setdefault("status", "created")
     if data["status"] not in STATUSES[kind]:
         raise HTTPException(400, f"A {kind} can't be '{data['status']}'.")
-    if kind != "task" and not data.get("client_id"):
-        raise HTTPException(400, "Please choose a customer.")
+    if kind == "note":
+        data["client_id"] = None   # a note is not for a client
+    elif not data.get("client_id"):
+        raise HTTPException(400, "Please choose a client.")
+    if data.get("repeat") and kind not in REPEATABLE:
+        raise HTTPException(400, "Only tasks and notes can repeat.")
     _check_links(data, uid)
     data.setdefault("date", db.today_local())
     source = db.get_row("items", data["from_item_id"], uid) if data.get("from_item_id") else None
     # a task scheduled from an estimate keeps the estimate's work and prices, so the invoice gets them later
+    if kind in REPEATABLE and data.get("repeat"):
+        data["repeat"] = {**data["repeat"], "start": data["date"]}
+        data["series_id"] = str(uuid.uuid4())
     if kind == "task" and source and source["kind"] == "estimate" and not data.get("lines"):
         data["lines"] = source.get("lines") or []
         data.setdefault("tax_rate", float(source.get("tax_rate") or 0))
         data.setdefault("tax_applies_to", source.get("tax_applies_to") or "materials")
-    if kind != "task":
+    if kind not in REPEATABLE:   # estimates and invoices: lines, number, tax, terms
         data["lines"] = data.get("lines", []) + [
             {"text": e.description.strip() or "Materials", "qty": 1, "price": e.amount, "kind": "material"}
             for e in body.expenses if e.add_to_invoice and e.amount > 0]
@@ -336,11 +361,13 @@ def create_item(body: ItemIn, uid: str = Depends(auth.current_user)):
     if data["status"] == "paid":
         data.setdefault("paid_date", db.today_local())
     row = db.insert_row("items", _apply_totals(data), uid)
+    if row.get("series_id"):
+        row = _make_visits(row, uid)
     for e in body.expenses:
         if e.amount > 0:
             db.insert_row("expenses", {"date": data["date"], "description": e.description.strip(), "amount": e.amount,
                                        "category": "Materials", "client_id": data.get("client_id"),
-                                       "item_id": row["id"] if kind != "task" else None}, uid)
+                                       "item_id": row["id"] if kind not in REPEATABLE else None}, uid)
     # "Job done -> Create invoice": the task it was made from is done now
     if source and source["kind"] == "task" and kind != "task" and source["status"] != "done":
         db.update_row("items", source["id"], {"status": "done"}, uid)
@@ -359,9 +386,20 @@ def get_item(item_id: str, uid: str = Depends(auth.current_user)):
 
 
 @app.patch("/api/items/{item_id}")
-def patch_item(item_id: str, body: ItemFields, uid: str = Depends(auth.current_user)):
+def patch_item(item_id: str, body: ItemFields, scope: Literal["one", "following"] = "one",
+               uid: str = Depends(auth.current_user)):
+    """scope (repeating tasks and notes): "one" changes only this visit; "following" this and all next ones."""
     old = _item_or_404(item_id, uid)
     data = body.model_dump(exclude_unset=True)
+    if "repeat" in data and old["kind"] not in REPEATABLE:
+        raise HTTPException(400, "Only tasks and notes can repeat.")
+    if old.get("series_id") and scope == "following":
+        return _patch_following(old, data, uid)
+    if "repeat" in data:
+        if old.get("series_id"):
+            data.pop("repeat")   # "only this one" keeps the series' rule
+        elif data["repeat"]:     # a single task / note starts repeating from here
+            return _patch_following(old, data, uid)
     if "lines" in data and data["lines"] is None:
         data["lines"] = []
     if old["status"] == "paid" and data.get("status", "paid") == "paid" and set(data) - PAID_EDITABLE:
@@ -369,8 +407,8 @@ def patch_item(item_id: str, body: ItemFields, uid: str = Depends(auth.current_u
     status = data.get("status") or old["status"]
     if status not in STATUSES[old["kind"]]:
         raise HTTPException(400, f"A {old['kind']} can't be '{status}'.")
-    if old["kind"] != "task" and "client_id" in data and not data["client_id"]:
-        raise HTTPException(400, "Please choose a customer.")
+    if old["kind"] in ("estimate", "invoice") and "client_id" in data and not data["client_id"]:
+        raise HTTPException(400, "Please choose a client.")
     _check_links(data, uid)
     if (data.get("number") or "").strip() and data["number"].strip() != old.get("number") and old["kind"] != "task":
         _check_number(old["kind"], data["number"].strip(), uid, except_id=item_id)
@@ -389,7 +427,7 @@ def patch_item(item_id: str, body: ItemFields, uid: str = Depends(auth.current_u
 def item_pdf(item_id: str, lang: Lang | None = None, uid: str = Depends(auth.current_user)):
     """The invoice / estimate as a PDF, in the document language (Settings) unless ?lang= is given."""
     item = _item_or_404(item_id, uid)
-    if item["kind"] == "task":
+    if item["kind"] in ("task", "note"):
         raise HTTPException(400, "A task has no PDF.")
     business = _business(uid)
     client = db.get_row("clients", item["client_id"], uid) if item.get("client_id") else None
@@ -400,10 +438,89 @@ def item_pdf(item_id: str, lang: Lang | None = None, uid: str = Depends(auth.cur
 
 
 @app.delete("/api/items/{item_id}", status_code=204)
-def delete_item(item_id: str, uid: str = Depends(auth.current_user)):
-    if _item_or_404(item_id, uid)["status"] == "paid":
+def delete_item(item_id: str, scope: Literal["one", "following"] = "one", uid: str = Depends(auth.current_user)):
+    row = _item_or_404(item_id, uid)
+    if row["status"] == "paid":
         raise HTTPException(409, "A paid invoice is locked. Undo the payment to delete it.")
+    if row.get("series_id") and scope == "following":   # this and all next visits
+        for r in _series(row["series_id"], uid):
+            if r["date"] >= row["date"]:
+                db.delete_row("items", r["id"], uid)
+        return
     db.delete_row("items", item_id, uid)
+
+
+# ---------- repeating tasks and notes (§6g): every visit is its own row of one series ----------
+REPEATABLE = ("task", "note")
+VISIT_FIELDS = ("kind", "client_id", "time", "reminder_minutes", "title", "address", "lines", "tax_rate",
+                "tax_applies_to", "subtotal", "tax", "total", "series_id", "repeat")
+
+
+def _series(series_id: str, uid: str) -> list[dict]:
+    return db.list_rows("items", uid, order="date", series_id=series_id)
+
+
+def _make_visits(first: dict, uid: str, through: date | None = None) -> dict:
+    """Adds the visits after `first` up to `through` (default: the first horizon) and remembers how far they go."""
+    rule = first["repeat"]
+    today = date.fromisoformat(db.today_local())
+    through = through or rep.first_horizon(rule, today)
+    after = date.fromisoformat(str(first["date"])[:10])
+    rule = {**rule, "made_until": through.isoformat()}
+    template = {k: first[k] for k in VISIT_FIELDS if k in first}
+    for d in rep.visits(rule, after, through):
+        db.insert_row("items", {**template, "repeat": rule, "date": d.isoformat(), "status": "created"}, uid)
+    return db.update_row("items", first["id"], {"repeat": rule}, uid)
+
+
+def _extend_series(uid: str, end: str) -> None:
+    """The calendar asks for dates past what was made (no end date): make the visits up to there."""
+    end_d = date.fromisoformat(end)
+    cap = date.fromisoformat(db.today_local()) + timedelta(days=rep.MAX_AHEAD_DAYS)
+    newest: dict[str, dict] = {}
+    for r in db.list_rows("items", uid, order="date"):
+        if r.get("series_id") and r.get("repeat"):
+            newest[r["series_id"]] = r   # rows come by date: the last one wins
+    for sid, last in newest.items():
+        rule = last["repeat"]
+        made = date.fromisoformat(rule.get("made_until") or str(last["date"])[:10])
+        if made >= end_d or made >= cap or (rule.get("until") and date.fromisoformat(rule["until"]) <= made):
+            continue
+        through = min(end_d + timedelta(days=60), cap)
+        rule = {**rule, "made_until": through.isoformat()}
+        template = {k: last[k] for k in VISIT_FIELDS if k in last}
+        for d in rep.visits(rule, made, through):
+            db.insert_row("items", {**template, "repeat": rule, "date": d.isoformat(), "status": "created"}, uid)
+        for r in _series(sid, uid):
+            db.update_row("items", r["id"], {"repeat": rule}, uid)
+
+
+def _patch_following(old: dict, data: dict, uid: str) -> dict:
+    """Change this visit and all next ones. A new date or rule restarts the series from this visit."""
+    data.pop("status", None) if old.get("series_id") else None   # done / not done is per visit
+    _check_links(data, uid)
+    stamp = datetime.now(timezone.utc).isoformat()
+    later = [r for r in (_series(old["series_id"], uid) if old.get("series_id") else []) if r["date"] > old["date"]]
+    if "repeat" in data or "date" in data:
+        rule = data.pop("repeat") if "repeat" in data else old.get("repeat")
+        for r in later:
+            if r["status"] != "done":
+                db.delete_row("items", r["id"], uid)
+        fields = {**data, "updated_at": stamp}
+        if rule:
+            start = data.get("date") or str(old["date"])[:10]
+            fields.update(series_id=str(uuid.uuid4()),
+                          repeat={k: rule.get(k) for k in ("every", "unit", "until")} | {"start": start})
+        else:
+            fields.update(series_id=None, repeat=None)
+        row = db.update_row("items", old["id"], fields, uid)
+        if rule:
+            row = _make_visits(row, uid)
+        return _with_client_names([row], uid)[0]
+    for r in later:
+        db.update_row("items", r["id"], {**data, "updated_at": stamp}, uid)
+    row = db.update_row("items", old["id"], {**data, "updated_at": stamp}, uid)
+    return _with_client_names([row], uid)[0]
 
 
 # =====================================================================================================

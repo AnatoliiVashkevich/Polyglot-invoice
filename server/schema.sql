@@ -64,7 +64,7 @@ create table if not exists items (
   id               uuid primary key default gen_random_uuid(),
   owner_id         uuid not null references auth.users(id) on delete cascade,
   client_id        uuid references clients(id) on delete set null,   -- empty = no customer (tasks only)
-  kind             text not null check (kind in ('task','estimate','invoice')),
+  kind             text not null check (kind in ('task','estimate','invoice','note')),
   status           text not null default 'created'
                    check (status in ('created','done','sent','requested','paid')),
   date             date not null,                        -- the day it shows on the calendar
@@ -84,11 +84,19 @@ create table if not exists items (
   paid_date        date,
   payment_method   text not null default '',
   from_item_id     uuid references items(id) on delete set null,   -- task/estimate it was made from
+  series_id        uuid,                                  -- repeating tasks / notes: every visit of one series
+  repeat           jsonb,                                 -- {every, unit: day|week|month|year, until, start, made_until}
   created_at       timestamptz not null default now(),
   updated_at       timestamptz not null default now()
 );
 create index if not exists items_owner_date_idx on items (owner_id, date);
 create index if not exists items_client_idx on items (client_id);
+-- added 2026-11-19: notes and repeating tasks / notes (product-decisions.md §6g)
+alter table items drop constraint if exists items_kind_check;
+alter table items add constraint items_kind_check check (kind in ('task','estimate','invoice','note'));
+alter table items add column if not exists series_id uuid;
+alter table items add column if not exists repeat jsonb;
+create index if not exists items_series_idx on items (series_id);
 
 -- ---------- Expenses ----------
 create table if not exists expenses (

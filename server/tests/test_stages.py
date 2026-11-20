@@ -36,8 +36,8 @@ def test_job_done_create_invoice_marks_the_task_done(api):
     assert api.get(f"/api/items/{task['id']}").json()["status"] == "done"
 
 
-def test_task_without_customer_and_its_reminder_choices(api):
-    r = api.post("/api/items", json={"kind": "task", "title": "Pick up tile", "date": "2026-11-20", "time": "16:30"})
+def test_a_note_and_its_reminder_choices(api):
+    r = api.post("/api/items", json={"kind": "note", "title": "Pick up tile", "date": "2026-11-20", "time": "16:30"})
     assert r.status_code == 201 and r.json().get("client_id") is None and r.json().get("reminder_minutes") is None
     tid = r.json()["id"]
     for minutes in (30, 60, 1440):
@@ -49,7 +49,7 @@ def test_task_without_customer_and_its_reminder_choices(api):
 
 def test_delete_jobs_but_never_a_paid_invoice(api):
     cid = new_client(api)["id"]
-    task = api.post("/api/items", json={"kind": "task", "title": "x"}).json()
+    task = api.post("/api/items", json={"kind": "task", "title": "x", "client_id": cid}).json()
     assert api.delete(f"/api/items/{task['id']}").status_code == 204
     inv = api.post("/api/items", json={"kind": "invoice", "client_id": cid, "lines": LINES, "status": "paid"}).json()
     assert api.delete(f"/api/items/{inv['id']}").status_code == 409
@@ -67,7 +67,7 @@ def test_task_from_an_estimate_keeps_its_prices_for_the_invoice(api):
                                         "from_item_id": est["id"]}).json()
     assert [l["text"] for l in task["lines"]] == [l["text"] for l in est["lines"]]
     assert task["total"] == est["total"] == 1890
-    plain = api.post("/api/items", json={"kind": "task", "title": "Pick up tile"}).json()
+    plain = api.post("/api/items", json={"kind": "task", "title": "Pick up tile", "client_id": cid}).json()
     assert plain.get("lines", []) == [] and plain.get("total", 0) == 0
 
 
