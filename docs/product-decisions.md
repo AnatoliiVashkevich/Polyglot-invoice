@@ -285,7 +285,8 @@ the website address (polyglotinvoice.com) and a USPTO trademark search.
   (Rental, Office…). Making a job for a saved client asks **"Where is the job?"** (chips; **＋ Another address** adds
   one to the client right there). The PDF shows JOB SITE when it isn't the billing address. On the client's page every
   address has its own **Navigate**.
-- The list of a client's jobs is called **History**.
+- The list of a client's jobs is called **History**. It has two parts: **Upcoming** (after today, soonest first; a
+  repeating series shows once, as its next visit) and the history itself (today and before, newest first, by month).
 - **Leaving an invoice or estimate that isn't sent yet asks** "This invoice is not sent yet. Send it to the client
   now?" → **Later** / **Send now** (owner, 2026-11-19).
 - **An invoice can still be made from a done task** ("Make invoice"), until one exists.

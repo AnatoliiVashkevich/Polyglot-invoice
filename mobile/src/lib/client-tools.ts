@@ -86,3 +86,20 @@ export function addressOptions(main: string, others: ClientAddress[] = []): (Cli
   others.forEach((a) => add(a, false));
   return out;
 }
+
+/**
+ * The client's page: Upcoming (after today, soonest first; a repeating series only once, its next visit) and
+ * History (today and before, newest first). Otherwise a year of weekly visits would bury the real history.
+ */
+export function splitByToday<T extends { id: string; date: string; time?: string; seriesId?: string }>(items: T[], today: string) {
+  const later = items.filter((it) => it.date > today).sort((a, b) => (a.date + (a.time ?? '')).localeCompare(b.date + (b.time ?? '')));
+  const seen = new Set<string>();
+  const upcoming = later.filter((it) => {
+    if (!it.seriesId) return true;
+    if (seen.has(it.seriesId)) return false;
+    seen.add(it.seriesId);
+    return true;
+  });
+  const history = newestFirst(items.filter((it) => it.date <= today));
+  return { upcoming, history };
+}

@@ -22,6 +22,7 @@ export interface Item {
   amount?: number; // total in dollars (estimates, invoices)
   dueDate?: string; // invoices: YYYY-MM-DD (past it and still Requested = overdue)
   repeating?: boolean; // a visit of a repeating task / note (🔁)
+  seriesId?: string; // which series (the client's page shows a series once under Upcoming)
 }
 
 export type Filter = 'all' | 'task' | 'estimate' | 'invoice' | 'note' | 'unpaid';

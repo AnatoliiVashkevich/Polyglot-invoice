@@ -50,6 +50,7 @@ export const toItem = (r: ServerItem): Item => ({
   amount: r.kind === 'task' || r.kind === 'note' ? undefined : Number(r.total),
   dueDate: r.due_date || undefined,
   repeating: !!r.series_id,
+  seriesId: r.series_id || undefined,
 });
 
 /** Every item dated between start and end (YYYY-MM-DD, both included). */

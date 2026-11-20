@@ -14,7 +14,8 @@ import { CreateButton } from '@/components/create-button';
 import { EditButton } from '@/components/edit-button';
 import { LANGUAGES, t } from '@/i18n';
 import { Chip } from '@/components/form';
-import { addressOptions, clientMoney, filterJobs, mapsUrl, JOB_FILTERS, monthGroups, newestFirst, type JobFilter } from '@/lib/client-tools';
+import { addressOptions, clientMoney, filterJobs, mapsUrl, JOB_FILTERS, monthGroups, splitByToday, type JobFilter } from '@/lib/client-tools';
+import { formatDay, todayIso } from '@/lib/dates';
 import { getClient, type Client } from '@/lib/clients';
 import { fetchClientItems } from '@/lib/items';
 import { money } from '@/lib/money';
@@ -39,7 +40,7 @@ export default function ClientScreen() {
       Promise.all([getClient(id), fetchClientItems(id)])
         .then(([c, its]) => {
           setClient(c);
-          setItems(newestFirst(its));
+          setItems(its);
           setError('');
         })
         .catch((e) => setError(t(e instanceof Error ? e.message : 'Could not load.')));
@@ -49,7 +50,14 @@ export default function ClientScreen() {
   const sums = useMemo(() => clientMoney(items), [items]);
   const [filter, setFilter] = useState<JobFilter>('all');
   const [shownCount, setShownCount] = useState(PAGE);
-  const filtered = useMemo(() => filterJobs(items, filter), [items, filter]);
+  // Upcoming (after today, a repeating series once) and History (today and before, newest first)
+  const today = todayIso();
+  const split = useMemo(() => splitByToday(filterJobs(items, filter), today), [items, filter, today]);
+  const countFor = (f: JobFilter) => {
+    const s = splitByToday(filterJobs(items, f), today);
+    return s.upcoming.length + s.history.length;
+  };
+  const filtered = split.history;
   const groups = useMemo(() => monthGroups(filtered.slice(0, shownCount)), [filtered, shownCount]);
   const choose = (f: JobFilter) => {
     setFilter(f);
@@ -135,10 +143,26 @@ export default function ClientScreen() {
             <>
               <View style={styles.filters}>
                 {JOB_FILTERS.map((f) => (
-                  <Chip key={f} label={`${t(FILTER_LABEL[f])} ${filterJobs(items, f).length}`} active={filter === f} onPress={() => choose(f)} />
+                  <Chip key={f} label={`${t(FILTER_LABEL[f])} ${countFor(f)}`} active={filter === f} onPress={() => choose(f)} />
                 ))}
               </View>
-              {filtered.length === 0 && <Text style={[styles.info, { color: colors.muted }]}>{t('Nothing here.')}</Text>}
+              {split.upcoming.length > 0 && (
+                <View style={{ gap: 6 }}>
+                  <Text style={[styles.month, { color: colors.muted }]}>{t('Upcoming')}</Text>
+                  {split.upcoming.map((it) => (
+                    <View key={it.id} style={{ gap: 2 }}>
+                      <Text style={[styles.when, { color: colors.muted }]}>
+                        {formatDay(it.date, 'en-US')}
+                        {it.repeating ? ` · 🔁 ${t('next visit')}` : ''}
+                      </Text>
+                      <DayRow item={it} onPress={() => router.push({ pathname: '/job/[id]', params: { id: it.id } })} />
+                    </View>
+                  ))}
+                </View>
+              )}
+              {filtered.length === 0 && split.upcoming.length === 0 && (
+                <Text style={[styles.info, { color: colors.muted }]}>{t('Nothing here.')}</Text>
+              )}
               {groups.map((g) => (
                 <View key={g.month} style={{ gap: 6 }}>
                   <Text style={[styles.month, { color: colors.muted }]}>
@@ -186,6 +210,7 @@ const styles = StyleSheet.create({
   addrRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   goBtn: { height: 32, paddingHorizontal: 10, borderRadius: radius.pill, borderWidth: 1, justifyContent: 'center' },
   goText: { fontSize: 13, fontWeight: '700' },
+  when: { fontSize: 12, fontWeight: '600', marginLeft: 4 },
   month: { fontSize: 13, fontWeight: '700', marginLeft: 4, marginTop: 6 },
   more: { height: 46, borderRadius: radius.md, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   moreText: { fontSize: 15, fontWeight: '700' },

@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { addressOptions, callUrl, clientMoney, filterJobs, mapsUrl, matches, monthGroups, newestFirst, phoneKey, textUrl } from './client-tools.ts';
+import { addressOptions, callUrl, splitByToday, clientMoney, filterJobs, mapsUrl, matches, monthGroups, newestFirst, phoneKey, textUrl } from './client-tools.ts';
 
 test('search finds by any part of the name, email, or 3+ digits of the phone', () => {
   assert.equal(matches('ann', 'Ann Lee', '561-555-0101', ''), true);
@@ -79,4 +79,17 @@ test('a client\'s addresses: the billing one first, then the others, without emp
     { label: 'Rental', address: '5 Oak Ave', main: false },
   ]);
   assert.deepEqual(addressOptions('', [{ label: 'Office', address: '1 Main' }]), [{ label: 'Office', address: '1 Main', main: false }]);
+});
+
+test('upcoming: soonest first, a repeating series once; history: today and before, newest first', () => {
+  const items = [
+    { id: 'a', date: '2026-11-10' },
+    { id: 'b', date: '2026-11-19' },
+    { id: 'w1', date: '2026-11-27', seriesId: 's' },
+    { id: 'w2', date: '2026-12-04', seriesId: 's' },
+    { id: 'c', date: '2026-11-25' },
+  ];
+  const { upcoming, history } = splitByToday(items, '2026-11-19');
+  assert.deepEqual(upcoming.map((i) => i.id), ['c', 'w1']);
+  assert.deepEqual(history.map((i) => i.id), ['b', 'a']);
 });
