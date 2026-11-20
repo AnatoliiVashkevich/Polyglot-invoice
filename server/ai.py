@@ -48,6 +48,11 @@ Rules:
 - Amounts are US dollars; "1.5k" = 1500.
 - Write each line as short, professional invoice wording in the SAME language (a noun phrase, fixed spelling), without
   changing the meaning: "съездил в магазин" -> "Поездка в магазин за материалами", "fixed the door thing" -> "Door repair".
+- When you are NOT sure what a part means (a typo you can't fix with confidence, an unknown word, a rude or odd word,
+  two possible meanings): keep the user's words in text, and fill `question` — a short, polite question to the user
+  in THEIR language ("Что вы имели в виду под «пердел»?") — and `suggestion` — your best guess as the tidy line text in
+  their language ("Переделка работы"), or "" if you have no good guess. Otherwise question and suggestion are "".
+  Never guess silently: a wrong word on an invoice embarrasses the user in front of their client.
 """
 
 TRANSLATE_RULES = """You translate the lines of the professional's invoice into {language} for their client.
@@ -56,6 +61,7 @@ Rules:
 - Professional, short invoice wording in {language}, using the terms someone in this trade there would use.
 - Keep numbers, sizes, units, brand and product names as they are. Never add or drop information.
 - A line already in {language}: return it as it is (only fix obvious spelling).
+- Never replace a word you don't understand with an unrelated one; translate the closest clear meaning.
 """
 
 LANGUAGE_NAMES = {"en": "English (US)", "es": "Spanish (as spoken in the USA)", "pt": "Portuguese (Brazilian)",
@@ -67,6 +73,8 @@ class AiLine(BaseModel):
     qty: float
     price: float
     kind: Literal["work", "material"]
+    question: str   # "" when clear; else a question to the user in their language (§6n)
+    suggestion: str  # the AI's best guess for the text when it asks, or ""
 
 
 class AiLines(BaseModel):
@@ -113,7 +121,12 @@ def clean_lines(lines: list[dict]) -> list[dict]:
         cents = Decimal(str(line.get("price") or 0)).quantize(Decimal("0.01"), ROUND_HALF_UP)   # like money.py
         price = min(max(float(cents), -1000000), 1000000)
         if text or price:
-            out.append({"text": text, "qty": qty, "price": price, "kind": "material" if line.get("kind") == "material" else "work"})
+            row = {"text": text, "qty": qty, "price": price, "kind": "material" if line.get("kind") == "material" else "work"}
+            question = (line.get("question") or "").strip()[:300]
+            if question:   # the AI isn't sure: the app asks the user under this line
+                row["question"] = question
+                row["suggestion"] = (line.get("suggestion") or "").strip()[:500]
+            out.append(row)
     return out[:200]
 
 

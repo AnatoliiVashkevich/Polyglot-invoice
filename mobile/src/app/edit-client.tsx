@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BigButton, Chip, Field } from '@/components/form';
 import { CustomerStep } from '@/components/invoice/customer-step';
 import { LANGUAGES, t, type Lang } from '@/i18n';
+import { CLIENT_COPY } from '@/lib/features';
 import { deleteClient, fetchClients, fetchSettings, getClient, storeClient, type Client, type ClientFields } from '@/lib/clients';
 import { kindColors, radius, useColors } from '@/theme';
 
@@ -184,6 +185,7 @@ export default function EditClientScreen() {
             style={{ minHeight: 90, paddingTop: 12, textAlignVertical: 'top' }}
           />
 
+          {CLIENT_COPY && (
           <View style={[styles.langCard, { backgroundColor: colors.card }]}>
             <Text style={[styles.langTitle, { color: colors.text }]}>{t('Also send a copy in your client’s language?')}</Text>
             <Text style={[styles.small, { color: colors.muted }]}>
@@ -204,6 +206,7 @@ export default function EditClientScreen() {
                 ))}
             </View>
           </View>
+          )}
 
           {!!id && (
             <Pressable

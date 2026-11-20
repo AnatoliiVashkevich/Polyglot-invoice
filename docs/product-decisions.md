@@ -347,6 +347,15 @@ the website address (polyglotinvoice.com) and a USPTO trademark search.
 - The AI reads every word in that work's sense ("укладка": a blowout for a hair salon, sod for lawn care). Before a
   choice: a neutral small service business, no construction guesses. The repair glossary ("пол" = floor) stays as help.
 
+## 6n. When the AI isn't sure, it asks (2026-11-19)
+
+- Owner: "пердел 100" stayed in Russian and became "curtain" in English. Now, when the AI isn't sure what a part means
+  (a typo, an unknown or odd word, two meanings), it keeps the user's words and asks **under that line, in the user's
+  language**: "❓ Что вы имели в виду под «пердел»?" → **Use «Переделка»** (its best guess) · **Keep as I wrote** ·
+  or correct the text. It never guesses silently; translations never swap in an unrelated word.
+- **The client's extra copy in their language is hidden for now** (owner: "hide it and all about it, remind me at the
+  last point"): no language question on the client screens. The data stays; switch: `mobile/src/lib/features.ts`.
+
 ## 13. Database (decided 2026-11-19)
 
 - The new app **reuses the crm-solo Supabase project and its keys**. Its old tables hold only test data and are
@@ -362,5 +371,7 @@ the website address (polyglotinvoice.com) and a USPTO trademark search.
 2. ~~Repeating tasks~~ → decided, §6g.
 3. ~~History~~ → decided, §6h (the calendar and the client's page are enough).
 4. ~~Notes~~ → decided, §6g.
+6. **The client's copy in their language — REMIND THE OWNER AT THE LAST POINT (before release).** Hidden now (§6n).
+   To decide: how to send two files (one PDF with both languages · Mail + Messages with two attachments · two shares).
 5. **Charging before the visit (prepayment / deposit)** — asked again 2026-11-19; planned with step 8 (Money): today an invoice can already be made from an estimate before
    the job ("Make invoice"). Still to discuss: a deposit (part now, the rest after the job) and how it shows.

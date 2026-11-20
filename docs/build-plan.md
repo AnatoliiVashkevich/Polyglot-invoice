@@ -87,6 +87,7 @@ A step is done only when its **"Test on iPhone"** works for the owner. Then mark
 - **Test on iPhone:** trial countdown, subscribe in Apple's test mode (sandbox), Free plan limits.
 
 ### [ ] 11. Release
+- **First remind the owner:** the client's extra copy in their language is hidden (§6n); decide how to send two files.
 - Host the server online; privacy policy and terms (website); App Store listing that leads with languages;
   screenshots; icon; TestFlight with 2–3 real contractors; fixes; submit for review.
 - **Test:** testers use it for real work for a week.

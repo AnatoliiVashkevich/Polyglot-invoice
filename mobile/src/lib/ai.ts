@@ -35,11 +35,14 @@ export async function askAiConsent(): Promise<boolean> {
   return yes;
 }
 
+/** A line from the AI; when it isn't sure, a question to the user (in their language) and its best guess. */
+export type AiLine = Line & { question?: string; suggestion?: string };
+
 /** Words → lines. by: 'ai' (the AI read it) or 'quick' (no consent / no AI: the app's own reader). */
-export async function describeToLines(text: string): Promise<{ lines: Line[]; by: 'ai' | 'quick' }> {
+export async function describeToLines(text: string): Promise<{ lines: AiLine[]; by: 'ai' | 'quick' }> {
   if (await askAiConsent()) {
     try {
-      const r = await api<{ lines: Line[] }>('/api/ai/lines', { method: 'POST', body: { text } });
+      const r = await api<{ lines: AiLine[] }>('/api/ai/lines', { method: 'POST', body: { text } });
       if (r.lines.length) return { lines: r.lines, by: 'ai' };
     } catch {
       // the AI is not available: fall back to the quick reader below

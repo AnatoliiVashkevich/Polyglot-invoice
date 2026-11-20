@@ -25,9 +25,9 @@ def use_fake(monkeypatch, **kw):
 
 
 def test_words_become_lines_the_user_can_check(api, monkeypatch):
-    answer = ai.AiLines(lines=[ai.AiLine(text="Door installation", qty=1, price=300, kind="work"),
-                               ai.AiLine(text="Double swing doors", qty=2, price=350, kind="work"),
-                               ai.AiLine(text="Hinges", qty=3, price=12, kind="material")])
+    answer = ai.AiLines(lines=[ai.AiLine(text="Door installation", qty=1, price=300, kind="work", question="", suggestion=""),
+                               ai.AiLine(text="Double swing doors", qty=2, price=350, kind="work", question="", suggestion=""),
+                               ai.AiLine(text="Hinges", qty=3, price=12, kind="material", question="", suggestion="")])
     fake_ai = use_fake(monkeypatch, answer=answer)
     r = api.post("/api/ai/lines", json={"text": "door installation 300, 2 double swing doors 700, hinges 3 at 12 each"})
     assert r.status_code == 200
@@ -136,8 +136,21 @@ def test_the_translation_rules_carry_the_trade_context():
 
 
 def test_the_users_trade_from_settings_reaches_the_ai(api, monkeypatch):
-    fake_ai = use_fake(monkeypatch, answer=ai.AiLines(lines=[ai.AiLine(text="Стрижка", qty=1, price=40, kind="work")]))
+    fake_ai = use_fake(monkeypatch, answer=ai.AiLines(lines=[ai.AiLine(text="Стрижка", qty=1, price=40, kind="work", question="", suggestion="")]))
     assert api.patch("/api/settings", json={"trade": "Hair salon"}).json()["trade"] == "Hair salon"
     api.post("/api/ai/lines", json={"text": "стрижка 40"})
     assert "whose work is: Hair salon" in fake_ai.calls[0]["instructions"]
     assert api.patch("/api/settings", json={"trade": "x" * 301}).status_code == 422
+
+
+def test_when_the_ai_is_not_sure_it_asks_the_user_in_their_language(api, monkeypatch):
+    """Owner: "пердел 100" became "curtain" in English. Now the AI keeps the words and asks, with its best guess."""
+    use_fake(monkeypatch, answer=ai.AiLines(lines=[
+        ai.AiLine(text="Пердел", qty=1, price=100, kind="work", question="Что вы имели в виду под «пердел»?",
+                  suggestion="Переделка работы"),
+        ai.AiLine(text="Установка двери", qty=1, price=300, kind="work", question="", suggestion="")]))
+    lines = api.post("/api/ai/lines", json={"text": "пердел 100, установка двери 300"}).json()["lines"]
+    assert lines[0] == {"text": "Пердел", "qty": 1, "price": 100, "kind": "work",
+                        "question": "Что вы имели в виду под «пердел»?", "suggestion": "Переделка работы"}
+    assert "question" not in lines[1]
+    assert "Never guess silently" in ai.LINES_RULES and "Never replace a word you don't understand" in ai.TRANSLATE_RULES

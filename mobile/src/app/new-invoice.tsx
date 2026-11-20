@@ -31,6 +31,7 @@ import { CustomerStep } from '@/components/invoice/customer-step';
 import { MaterialsExpenseSheet, type PaidExpense } from '@/components/materials-expense-sheet';
 import { LANGUAGES, t, type Lang } from '@/i18n';
 import { describeToLines } from '@/lib/ai';
+import { CLIENT_COPY } from '@/lib/features';
 import { api, ApiError } from '@/lib/api';
 import { addClientAddress, fetchClients, fetchNextNumber, fetchSettings, saveClient, type Client, type ClientDraft, type Settings } from '@/lib/clients';
 import { formatDay, isoDate, parseIso, todayIso } from '@/lib/dates';
@@ -39,7 +40,7 @@ import { getItem, patchItem, sendInvoice, type ServerItem } from '@/lib/items';
 import { money } from '@/lib/money';
 import { radius, useColors } from '@/theme';
 
-type WorkRow = { key: string; text: string; qty: string; price: string; kind: LineKind };
+type WorkRow = { key: string; text: string; qty: string; price: string; kind: LineKind; question?: string; suggestion?: string };
 type DueDays = number; // 0 = Now; the chips offer 0 / 7 / 15 / 30
 
 const STEPS = ['Client', 'Check info', 'Work + prices', 'Date', 'Review'] as const;
@@ -184,13 +185,24 @@ export default function NewInvoiceScreen() {
     try {
       const { lines, by } = await describeToLines(text);
       if (!lines.length) return setDescribeNote(t('No lines found. Please write the work and the price, like: door installation 300.'));
-      const made = lines.map((l) => ({ key: newKey(), text: l.text, qty: String(l.qty ?? 1), price: l.price ? String(l.price) : '', kind: l.kind ?? 'work' }));
+      const made = lines.map((l) => ({
+        key: newKey(),
+        text: l.text,
+        qty: String(l.qty ?? 1),
+        price: l.price ? String(l.price) : '',
+        kind: l.kind ?? 'work',
+        question: l.question || undefined, // the AI isn't sure: it asks under the line (§6n)
+        suggestion: l.suggestion || undefined,
+      }));
       // the new lines replace empty rows; rows the user already filled stay
       setWork((rows) => [...rows.filter((r) => r.text.trim() || r.price.trim()), ...made]);
       setDescribe('');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const asks = made.filter((m) => m.question).length;
       setDescribeNote(
-        by === 'ai'
+        by === 'ai' && asks
+          ? t('Done. The AI has a question about {n} line(s) below; please answer it.', { n: asks })
+          : by === 'ai'
           ? t('Done. Please check the lines below; you can change anything.')
           : t('Made from the numbers you typed (without AI). Please check the lines below.'),
       );
@@ -398,7 +410,8 @@ export default function NewInvoiceScreen() {
                 onAdd={async (a) => setOriginal(await addClientAddress(original, a))}
               />
             )}
-            {/* the client's language: an extra translated copy (product-decisions.md §9), asked as a friendly question */}
+            {/* the client's language: an extra translated copy (§9) — hidden for now (lib/features.ts) */}
+            {CLIENT_COPY && (
             <View style={[styles.langCard, { backgroundColor: colors.card }]}>
               <Text style={[styles.langTitle, { color: colors.text }]}>{t('Also send a copy in your client’s language?')}</Text>
               <Text style={[styles.small, { color: colors.muted }]}>
@@ -419,6 +432,7 @@ export default function NewInvoiceScreen() {
                   ))}
               </View>
             </View>
+            )}
           </View>
         ) : null;
       case 2:
@@ -442,13 +456,29 @@ export default function NewInvoiceScreen() {
               <View key={w.key} style={[styles.lineCard, { backgroundColor: colors.card }]}>
                 <TextInput
                   value={w.text}
-                  onChangeText={(v) => setW(w.key, { text: v })}
+                  onChangeText={(v) => setW(w.key, { text: v, question: undefined, suggestion: undefined })}
                   placeholder={i === 0 ? t('e.g. Installed 2 doors, or the full scope of work') : t('Work')}
                   placeholderTextColor={colors.faint}
                   autoFocus={false}
                   multiline
                   style={[styles.lineText, styles.lineBox, { color: colors.text, borderColor: colors.line, backgroundColor: colors.bg }]}
                 />
+                {!!w.question && (
+                  <View style={[styles.askBox, { borderColor: '#F59E0B', backgroundColor: colors.bg }]}>
+                    <Text style={[styles.askText, { color: colors.text }]}>❓ {w.question}</Text>
+                    <View style={styles.chips}>
+                      {!!w.suggestion && (
+                        <Chip
+                          label={t('Use «{s}»', { s: w.suggestion })}
+                          active={false}
+                          onPress={() => setW(w.key, { text: w.suggestion ?? w.text, question: undefined, suggestion: undefined })}
+                        />
+                      )}
+                      <Chip label={t('Keep as I wrote')} active={false} onPress={() => setW(w.key, { question: undefined, suggestion: undefined })} />
+                    </View>
+                    <Text style={[styles.small, { color: colors.muted }]}>{t('Or correct the text above.')}</Text>
+                  </View>
+                )}
                 <View style={styles.chips}>
                   <Chip label={t('Work')} active={w.kind !== 'material'} onPress={() => setW(w.key, { kind: 'work' })} />
                   <Chip label={t('Materials')} active={w.kind === 'material'} onPress={() => setW(w.key, { kind: 'material' })} />
@@ -686,6 +716,8 @@ const styles = StyleSheet.create({
   label: { fontSize: 13, fontWeight: '600', marginTop: 4 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   lineCard: { borderRadius: radius.md, padding: 12, gap: 10 },
+  askBox: { borderWidth: 1.5, borderRadius: radius.sm, padding: 10, gap: 8 },
+  askText: { fontSize: 15, fontWeight: '600' },
   describeCard: { borderRadius: radius.md, padding: 12, gap: 10, borderWidth: 1.5 },
   describeTitle: { fontSize: 16, fontWeight: '700' },
   lineText: { fontSize: 17, minHeight: 28 },

@@ -17,6 +17,7 @@ import { Chip } from '@/components/form';
 import { addressOptions, clientMoney, filterJobs, mapsUrl, JOB_FILTERS, monthGroups, splitByToday, type JobFilter } from '@/lib/client-tools';
 import { formatDay, todayIso } from '@/lib/dates';
 import { getClient, type Client } from '@/lib/clients';
+import { CLIENT_COPY } from '@/lib/features';
 import { fetchClientItems } from '@/lib/items';
 import { money } from '@/lib/money';
 import { kindColors, radius, useColors } from '@/theme';
@@ -124,9 +125,11 @@ export default function ClientScreen() {
                 </Pressable>
               </View>
             ))}
+            {CLIENT_COPY && (
             <Text style={[styles.info, { color: colors.muted }]}>
               🌐 {client.preferred_language ? t('Also gets a copy in {lang}', { lang: LANGUAGES[client.preferred_language] }) : t('No extra language')}
             </Text>
+            )}
             {!!client.notes && (
               <Text style={[styles.info, { color: colors.text }]} selectable>
                 📝 {client.notes}
