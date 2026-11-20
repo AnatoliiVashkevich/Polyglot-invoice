@@ -297,6 +297,11 @@ the website address (polyglotinvoice.com) and a USPTO trademark search.
   - A deposit (part before, the rest after) is planned with step 8.
 - **🔗 Linked** on every job card, hidden until tapped: the same job's other stages (estimate → task → invoice);
   tap one to open it.
+- **§6j Teach every status, prevent mistakes** (owner, 2026-11-19): under the status on every job card, one plain line
+  says what it means and what happens next ("You get a reminder 1 hour before", "Only you can see it. Tap Send
+  invoice…"). The task button says **✓ Job finished** (not just "Done", which looked like "saved"), and marking a task
+  or note done always asks first: "Is the job finished? It is planned for Nov 27 at 9:00. After this, its reminder is
+  turned off." → **Not yet** / **Yes, it's finished**. New status buttons follow the same rule.
 - **One place for Edit and Delete on every page:** **✏️ Edit** at the **top right** (a bit bigger, the same
   everywhere); **Delete** at the **bottom**, away from other buttons, so nothing is deleted by accident.
 - **On the Clients tab the ＋ menu offers "New client" first** (big), then Invoice · Estimate · Task · Expense; no

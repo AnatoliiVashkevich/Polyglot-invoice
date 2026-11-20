@@ -27,10 +27,16 @@ import { syncNotifications } from '@/lib/notifications';
 import { cleanOldPdfs, downloadPdf } from '@/lib/pdf';
 import { reminderLabel, reminderMessage, type ReminderMinutes } from '@/lib/reminders';
 import { repeatLabel } from '@/lib/repeat-rule';
+import { isAhead, statusHelp } from '@/lib/status-help';
 import { isOverdue } from '@/lib/status';
 import { kindColors, radius, useColors } from '@/theme';
 
 const KIND_LABEL = { task: 'Task', estimate: 'Estimate', invoice: 'Invoice', note: 'Note' } as const;
+
+/** Back to the calendar on that day (`at` makes the calendar select it even when it already shows it). */
+function backToCalendar(day: string) {
+  router.dismissTo({ pathname: '/', params: { day, at: String(Date.now()) } });
+}
 
 export default function JobScreen() {
   const colors = useColors();
@@ -90,7 +96,7 @@ export default function JobScreen() {
     }, [load, remind, sendReminder]),
   );
 
-  const close = () => router.dismissTo({ pathname: '/', params: { day: item?.date ?? '', at: String(Date.now()) } });
+  const close = () => backToCalendar(item?.date ?? '');
 
   const run = async (fn: () => Promise<unknown>) => {
     if (busy) return;
@@ -129,10 +135,24 @@ export default function JobScreen() {
     if (step === 'send-estimate' || step === 'send-invoice') return send();
     if (step === 'mark-paid') return setPaying(true);
     if (step === 'schedule') return router.push({ pathname: '/new-task', params: { from: item.id } });
-    if (step === 'done') return run(() => patchItem(item.id, { status: 'done' }));
+    if (step === 'done') return markDone();
     if (step === 'open-invoice') return linkedInvoice && router.push({ pathname: '/job/[id]', params: { id: linkedInvoice.id } });
     // make-invoice (from an estimate) or job-done (from a task): the questionnaire, filled in
     router.push({ pathname: '/new-invoice', params: { from: item.id } });
+  };
+
+  // "done" turns the reminder off, so it is never a silent tap (§6j): say what happens, ask first
+  const markDone = () => {
+    if (!item) return;
+    const isTask = item.kind === 'task';
+    const when = `${formatDay(item.date, 'en-US')}${item.time ? ` ${t('at')} ${formatTime(item.time)}` : ''}`;
+    const message = isAhead({ date: item.date, time: item.time })
+      ? t('It is planned for {when}. After this, its reminder is turned off.', { when })
+      : t('After this, its reminder is turned off.');
+    Alert.alert(isTask ? t('Is the job finished?') : t('Mark this note done?'), message, [
+      { text: t('Not yet'), style: 'cancel' },
+      { text: isTask ? t('Yes, it’s finished') : t('Yes, done'), onPress: () => run(() => patchItem(item.id, { status: 'done' })) },
+    ]);
   };
 
   const edit = () => {
@@ -222,7 +242,7 @@ export default function JobScreen() {
     }
     if (item.kind === 'estimate' && item.status === 'sent') small.push({ label: t('Send again'), onPress: send });
     if (item.kind === 'task' && item.status !== 'done' && !item.series_id)
-      small.push({ label: t('Mark done'), onPress: () => run(() => patchItem(item.id, { status: 'done' })) });
+      small.push({ label: t('Job finished'), onPress: markDone });
     if ((item.kind === 'task' || item.kind === 'note') && item.status === 'done')
       small.push({ label: t('Not done'), onPress: () => run(() => patchItem(item.id, { status: 'created' })) });
     if (item.status === 'paid') small.push({ label: t('Undo payment'), onPress: undo });
@@ -257,6 +277,10 @@ export default function JobScreen() {
             </Text>
           </Pressable>
           <Text style={[styles.status, { color: statusColor }]}>{statusText}</Text>
+          {/* what this status means and what happens next (§6j) */}
+          <Text style={[styles.help, { color: colors.muted }]}>
+            {t(statusHelp({ kind: item.kind, status: item.status, date: item.date, time: item.time, reminderMinutes: item.reminder_minutes }))}
+          </Text>
           {!!client?.phone && <Text style={[styles.small, { color: colors.muted, marginTop: 4 }]}>📞 {client.phone}</Text>}
           {!!(item.address || client?.address) && (
             <Text style={[styles.small, { color: colors.muted }]}>📍 {item.address || client?.address}</Text>
@@ -363,7 +387,7 @@ export default function JobScreen() {
       {item && (
         <View style={[styles.actions, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           {steps.map((s, i) => (
-            <BigButton key={s} title={t(NEXT_STEP_LABEL[s])} onPress={() => doStep(s)} busy={busy && i === 0} kind={i === 0 ? 'main' : 'second'} />
+            <BigButton key={s} title={s === 'done' && item.kind === 'task' ? t('✓ Job finished') : t(NEXT_STEP_LABEL[s])} onPress={() => doStep(s)} busy={busy && i === 0} kind={i === 0 ? 'main' : 'second'} />
           ))}
           <View style={styles.smallRow}>
             {small.map((b) => (
@@ -400,6 +424,7 @@ const styles = StyleSheet.create({
   topBtn: { fontSize: 17, fontWeight: '600', width: 90 },
   topTitle: { fontSize: 17, fontWeight: '700' },
   topRight: { width: 90, alignItems: 'flex-end' },
+  help: { fontSize: 14, marginTop: 2 },
   linkedToggle: { fontSize: 15, fontWeight: '700' },
   linked: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: radius.md, paddingHorizontal: 12, height: 42 },
   linkedDot: { width: 10, height: 10, borderRadius: 5 },
