@@ -1,4 +1,5 @@
 // The orange ＋ floating above the tab bar, and its menu: "New invoice" big and first, then Estimate · Task · Expense.
+// On the Clients tab (main="client") the big first option is "New client", and Invoice joins the smaller ones.
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -8,11 +9,27 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { t } from '@/i18n';
 import { radius, useColors } from '@/theme';
 
-export type CreateKind = 'invoice' | 'estimate' | 'task' | 'expense';
+export type CreateKind = 'invoice' | 'estimate' | 'task' | 'expense' | 'client';
+
+const SMALL: Record<CreateKind, [string, string]> = {
+  invoice: ['💵', 'Invoice'],
+  estimate: ['📋', 'Estimate'],
+  task: ['☑️', 'Task'],
+  expense: ['🧾', 'Expense'],
+  client: ['👤', 'Client'],
+};
 
 const TAB_BAR = 49; // the iPhone tab bar height above the home-indicator area
 
-export function CreateButton({ onCreate, clientId }: { onCreate?: (kind: CreateKind) => void; clientId?: string }) {
+export function CreateButton({
+  onCreate,
+  clientId,
+  main = 'invoice',
+}: {
+  onCreate?: (kind: CreateKind) => void;
+  clientId?: string;
+  main?: 'invoice' | 'client';
+}) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
@@ -20,6 +37,7 @@ export function CreateButton({ onCreate, clientId }: { onCreate?: (kind: CreateK
   const choose = (kind: CreateKind) => {
     setOpen(false);
     if (onCreate) onCreate(kind);
+    else if (kind === 'client') router.push('/edit-client');
     else if (kind === 'invoice') router.push({ pathname: '/new-invoice', params: clientId ? { client: clientId } : {} });
     else if (kind === 'estimate') router.push({ pathname: '/new-invoice', params: { kind: 'estimate', ...(clientId ? { client: clientId } : {}) } });
     else if (kind === 'task') router.push({ pathname: '/new-task', params: clientId ? { client: clientId } : {} });
@@ -47,19 +65,16 @@ export function CreateButton({ onCreate, clientId }: { onCreate?: (kind: CreateK
         <View style={[styles.sheet, { backgroundColor: colors.card, paddingBottom: insets.bottom + 16 }]}>
           <View style={[styles.handle, { backgroundColor: colors.line }]} />
           <Pressable
-            onPress={() => choose('invoice')}
+            onPress={() => choose(main)}
             style={({ pressed }) => [styles.main, { backgroundColor: colors.accent, opacity: pressed ? 0.85 : 1 }]}>
-            <Text style={styles.mainIcon}>💵</Text>
-            <Text style={[styles.mainText, { color: colors.onAccent }]}>{t('New invoice')}</Text>
+            <Text style={styles.mainIcon}>{main === 'client' ? '👤' : '💵'}</Text>
+            <Text style={[styles.mainText, { color: colors.onAccent }]}>{main === 'client' ? t('New client') : t('New invoice')}</Text>
           </Pressable>
           <View style={styles.others}>
-            {(
-              [
-                ['estimate', '📋', 'Estimate'],
-                ['task', '☑️', 'Task'],
-                ['expense', '🧾', 'Expense'],
-              ] as const
-            ).map(([kind, icon, label]) => (
+            {(main === 'client'
+              ? (['invoice', 'estimate', 'task', 'expense'] as const)
+              : (['estimate', 'task', 'expense'] as const)
+            ).map((kind) => [kind, ...SMALL[kind]] as const).map(([kind, icon, label]) => (
               <Pressable
                 key={kind}
                 onPress={() => choose(kind)}

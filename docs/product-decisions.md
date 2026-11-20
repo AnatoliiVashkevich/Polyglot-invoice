@@ -286,6 +286,8 @@ the website address (polyglotinvoice.com) and a USPTO trademark search.
   one to the client right there). The PDF shows JOB SITE when it isn't the billing address. On the client's page every
   address has its own **Navigate**.
 - The list of a client's jobs is called **History**.
+- **On the Clients tab the ＋ menu offers "New client" first** (big), then Invoice · Estimate · Task · Expense; no
+  separate "New client" button.
 - History: finished jobs stay in the calendar (faded, ✓) and on the client's page; that is enough (owner, 2026-11-19).
 
 ## 13. Database (decided 2026-11-19)

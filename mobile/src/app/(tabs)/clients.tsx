@@ -1,5 +1,5 @@
 // CLIENTS TAB: everyone the user works for, A–Z, with one search box (name, phone or email).
-// Each row: name, phone, and what they owe (red) — tap → the client's page. "＋ New client" at the top.
+// Each row: name, phone, and what they owe (red) — tap → the client's page. The ＋ here offers "New client" first.
 // Clients are also added on the way, when an invoice / estimate / task picks a new name or a phone contact.
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
@@ -44,12 +44,6 @@ export default function ClientsScreen() {
     <View style={[styles.screen, { backgroundColor: colors.bg, paddingTop: insets.top + 6 }]}>
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>{t('Clients')}</Text>
-        <Pressable
-          onPress={() => router.push('/edit-client')}
-          accessibilityRole="button"
-          style={({ pressed }) => [styles.newBtn, { borderColor: colors.accent, backgroundColor: pressed ? colors.line : colors.card }]}>
-          <Text style={[styles.newText, { color: colors.accent }]}>{t('＋ New client')}</Text>
-        </Pressable>
       </View>
       {owesTotal > 0 && (
         <Text style={[styles.owesAll, { color: kindColors.unpaid }]}>{t('Clients owe you {amount}', { amount: money(owesTotal) })}</Text>
@@ -97,7 +91,7 @@ export default function ClientsScreen() {
           clients ? (
             <View style={[styles.empty, { backgroundColor: colors.card }]}>
               <Text style={[styles.emptyText, { color: colors.muted }]}>
-                {q ? t('No client matches “{q}”.', { q }) : t('No clients yet. They are added when you create an invoice, or with ＋ New client.')}
+                {q ? t('No client matches “{q}”.', { q }) : t('No clients yet. They are added when you create an invoice, or with ＋ → New client.')}
               </Text>
             </View>
           ) : (
@@ -106,7 +100,7 @@ export default function ClientsScreen() {
         }
       />
 
-      <CreateButton />
+      <CreateButton main="client" />
     </View>
   );
 }
@@ -115,8 +109,6 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 },
   title: { fontSize: 32, fontWeight: '800', letterSpacing: -0.5 },
-  newBtn: { height: 38, paddingHorizontal: 14, borderRadius: radius.pill, borderWidth: 1.5, justifyContent: 'center' },
-  newText: { fontSize: 15, fontWeight: '700' },
   owesAll: { paddingHorizontal: 16, marginTop: 2, fontSize: 15, fontWeight: '700' },
   search: { marginHorizontal: 16, marginTop: 12, height: 46, borderRadius: radius.md, borderWidth: 1, paddingHorizontal: 14, fontSize: 17 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: radius.md, borderWidth: StyleSheet.hairlineWidth, padding: 12 },
