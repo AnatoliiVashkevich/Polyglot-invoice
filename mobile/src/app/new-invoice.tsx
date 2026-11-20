@@ -33,7 +33,7 @@ import { LANGUAGES, t, type Lang } from '@/i18n';
 import { api, ApiError } from '@/lib/api';
 import { addClientAddress, fetchClients, fetchNextNumber, fetchSettings, saveClient, type Client, type ClientDraft, type Settings } from '@/lib/clients';
 import { formatDay, isoDate, parseIso, todayIso } from '@/lib/dates';
-import { dueDate, lineCents, parseAmount, totals, type Line, type LineKind } from '@/lib/invoice-math';
+import { dueDate, lineCents, overLimit, parseAmount, totals, type Line, type LineKind } from '@/lib/invoice-math';
 import { getItem, patchItem, sendInvoice, type ServerItem } from '@/lib/items';
 import { money } from '@/lib/money';
 import { radius, useColors } from '@/theme';
@@ -215,6 +215,9 @@ export default function NewInvoiceScreen() {
       if (workLines.some((l) => !l.text)) return setError(t('Please describe each line of work.'));
       if (workLines.some((l) => Number.isNaN(l.price) || Number.isNaN(l.qty)))
         return setError(t('Please check the prices: numbers only, like 200 or 64.50.'));
+      // a typo guard (an extra zero), the same limits as the server
+      if (workLines.some((l) => overLimit(l) === 'price')) return setError(t('One line can be at most $1,000,000. Please check for an extra zero.'));
+      if (workLines.some((l) => overLimit(l) === 'qty')) return setError(t('Qty can be at most 100,000. Please check for an extra zero.'));
     }
     if (editing && (step === 2 || step === DATE)) return go(REVIEW); // editing: back to Review
     go(step + 1);
@@ -434,7 +437,7 @@ export default function NewInvoiceScreen() {
                 </View>
               </View>
             ))}
-            <BigButton kind="second" title={t('＋ Another line')} onPress={() => setWork((rows) => [...rows, emptyWork()])} />
+            <BigButton kind="second" title={t('＋ Add line')} onPress={() => setWork((rows) => [...rows, emptyWork()])} />
             {workLines.length > 0 && !workLines.some((l) => Number.isNaN(l.price) || Number.isNaN(l.qty)) && (
               <Text style={[styles.total, { color: colors.text }]}>
                 {t('Total')} {money(totals(workLines).total)}

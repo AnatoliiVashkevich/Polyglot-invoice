@@ -138,11 +138,11 @@ export default function ClientScreen() {
             </View>
           ) : (
             <>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+              <View style={styles.filters}>
                 {JOB_FILTERS.map((f) => (
                   <Chip key={f} label={`${t(FILTER_LABEL[f])} ${filterJobs(items, f).length}`} active={filter === f} onPress={() => choose(f)} />
                 ))}
-              </ScrollView>
+              </View>
               {filtered.length === 0 && <Text style={[styles.info, { color: colors.muted }]}>{t('Nothing here.')}</Text>}
               {groups.map((g) => (
                 <View key={g.month} style={{ gap: 6 }}>
@@ -189,6 +189,7 @@ const styles = StyleSheet.create({
   card: { borderRadius: radius.md, padding: 14, gap: 6 },
   info: { fontSize: 16 },
   section: { fontSize: 12, fontWeight: '700', letterSpacing: 0.6, marginTop: 4 },
+  filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   addrRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   goBtn: { height: 32, paddingHorizontal: 10, borderRadius: radius.pill, borderWidth: 1, justifyContent: 'center' },
   goText: { fontSize: 13, fontWeight: '700' },

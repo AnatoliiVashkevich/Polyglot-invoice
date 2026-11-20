@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { dueDate, parseAmount, totals, type Line } from './invoice-math.ts';
+import { dueDate, overLimit, parseAmount, totals, type Line } from './invoice-math.ts';
 
 const LINES: Line[] = [
   { text: 'Single swing door', qty: 2, price: 200, kind: 'work' },
@@ -50,4 +50,10 @@ test('due date', () => {
   assert.equal(dueDate('2026-11-19', 0), '2026-11-19');
   assert.equal(dueDate('2026-11-19', 15), '2026-12-04');
   assert.equal(dueDate('2026-12-20', 30), '2027-01-19');
+});
+
+test('a line over $1,000,000 or 100,000 pieces is a typo guard, with a clear reason', () => {
+  assert.equal(overLimit({ qty: 1, price: 1_000_000 }), null);
+  assert.equal(overLimit({ qty: 1, price: 20_000_000 }), 'price');
+  assert.equal(overLimit({ qty: 200_000, price: 1 }), 'qty');
 });

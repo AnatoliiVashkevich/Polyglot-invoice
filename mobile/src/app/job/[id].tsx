@@ -205,6 +205,10 @@ export default function JobScreen() {
             </Text>
           </Pressable>
           <Text style={[styles.status, { color: statusColor }]}>{statusText}</Text>
+          {!!client?.phone && <Text style={[styles.small, { color: colors.muted, marginTop: 4 }]}>📞 {client.phone}</Text>}
+          {!!(item.address || client?.address) && (
+            <Text style={[styles.small, { color: colors.muted }]}>📍 {item.address || client?.address}</Text>
+          )}
           {!!client && (
             <View style={{ marginTop: 8 }}>
               <ContactBar phone={client.phone} address={item.address || client.address} compact />
@@ -253,19 +257,6 @@ export default function JobScreen() {
               🔔 {t(reminderLabel((item.reminder_minutes as ReminderMinutes | null) ?? null))}
             </Text>
           </View>
-          {!!(client || item.address) && (
-            <Pressable
-              disabled={!client}
-              onPress={() => client && router.push({ pathname: '/client/[id]', params: { id: client.id } })}
-              style={({ pressed }) => [styles.card, { backgroundColor: pressed ? colors.line : colors.card }]}>
-              <Text style={[styles.cardLabel, { color: colors.muted }]}>{t('CLIENT')}{client ? '  ›' : ''}</Text>
-              {!!client && <Text style={[styles.body, { color: colors.text, fontWeight: '700' }]}>{client.name}</Text>}
-              {!!client?.phone && <Text style={[styles.small, { color: colors.muted }]}>📞 {client.phone}</Text>}
-              {!!(item.address || client?.address) && (
-                <Text style={[styles.small, { color: colors.muted }]}>📍 {item.address || client?.address}</Text>
-              )}
-            </Pressable>
-          )}
         </ScrollView>
       ) : (
         <View style={[styles.preview, { backgroundColor: colors.card, borderColor: colors.line }]}>

@@ -1,4 +1,6 @@
 // EDIT CLIENT (/edit-client?id=…) and NEW CLIENT (/edit-client): one screen with every field, Save at the bottom.
+// New client starts with the same search as an invoice (your clients, phone contacts, "New client …"): a phone contact
+// fills the form in; an existing client opens their page (no duplicates).
 // Editing also offers "Delete client": their jobs and expenses stay (without the client), so no money record is lost.
 // "Other addresses": a rental, an office… (the main Address is the billing one); jobs can be at any of them.
 import * as Haptics from 'expo-haptics';
@@ -8,8 +10,9 @@ import { ActivityIndicator, Alert, KeyboardAvoidingView, Pressable, ScrollView, 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BigButton, Chip, Field } from '@/components/form';
+import { CustomerStep } from '@/components/invoice/customer-step';
 import { LANGUAGES, t, type Lang } from '@/i18n';
-import { deleteClient, fetchSettings, getClient, storeClient, type ClientFields } from '@/lib/clients';
+import { deleteClient, fetchClients, fetchSettings, getClient, storeClient, type Client, type ClientFields } from '@/lib/clients';
 import { kindColors, radius, useColors } from '@/theme';
 
 const EMPTY: ClientFields = { name: '', phone: '', email: '', address: '', notes: '', preferred_language: '', addresses: [] };
@@ -18,7 +21,9 @@ export default function EditClientScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id?: string }>();
-  const [fields, setFields] = useState<ClientFields | null>(id ? null : EMPTY);
+  const [fields, setFields] = useState<ClientFields | null>(null);
+  const [clients, setClients] = useState<Client[] | null>(null); // new client: the search list
+  const [fromContacts, setFromContacts] = useState(false);
   const [start, setStart] = useState<ClientFields>(EMPTY);
   const [docLang, setDocLang] = useState<Lang>('en');
   const [busy, setBusy] = useState(false);
@@ -28,7 +33,12 @@ export default function EditClientScreen() {
     fetchSettings()
       .then((s) => setDocLang(s.doc_language))
       .catch(() => {});
-    if (!id) return;
+    if (!id) {
+      fetchClients()
+        .then(setClients)
+        .catch((e) => setError(t(e instanceof Error ? e.message : 'Could not load.')));
+      return;
+    }
     getClient(id)
       .then((c) => {
         const f: ClientFields = {
@@ -75,7 +85,8 @@ export default function EditClientScreen() {
       };
       // a new client without other addresses doesn't send the list (works before the database has the column)
       const body = !id && trimmed.addresses.length === 0 ? { ...trimmed, addresses: undefined } : trimmed;
-      const saved = await storeClient(body as ClientFields, id);
+      // from the phone contacts: a client with the same phone or email is used, not duplicated
+      const saved = await storeClient((fromContacts ? { ...body, use_existing: true } : body) as ClientFields, id);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       if (id) router.back();
       else router.replace({ pathname: '/client/[id]', params: { id: saved.id } });
@@ -114,7 +125,25 @@ export default function EditClientScreen() {
         <View style={{ width: 64 }} />
       </View>
 
-      {!fields ? (
+      {!id && !fields ? (
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+          <Text style={[styles.title, { color: colors.text }]}>{t('Who is the new client?')}</Text>
+          {clients ? (
+            <CustomerStep
+              clients={clients}
+              onPick={(draft) => {
+                if (draft.id) return router.replace({ pathname: '/client/[id]', params: { id: draft.id } }); // already a client
+                setFromContacts(!!draft.fromContacts);
+                setFields({ ...EMPTY, name: draft.name, phone: draft.phone, email: draft.email, address: draft.address });
+              }}
+            />
+          ) : error ? (
+            <Text style={[styles.error, { marginTop: 40, textAlign: 'center' }]}>{error}</Text>
+          ) : (
+            <ActivityIndicator style={{ marginTop: 40 }} />
+          )}
+        </ScrollView>
+      ) : !fields ? (
         error ? (
           <Text style={[styles.error, { marginTop: 40, textAlign: 'center' }]}>{error}</Text>
         ) : (
@@ -122,7 +151,7 @@ export default function EditClientScreen() {
         )
       ) : (
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
-          <Field label={t('Name')} value={fields.name} onChangeText={(v) => set({ name: v })} autoCapitalize="words" autoFocus={!id} />
+          <Field label={t('Name')} value={fields.name} onChangeText={(v) => set({ name: v })} autoCapitalize="words" />
           <Field label={t('Phone')} value={fields.phone} onChangeText={(v) => set({ phone: v })} keyboardType="phone-pad" textContentType="telephoneNumber" />
           <Field label={t('Email')} value={fields.email} onChangeText={(v) => set({ email: v })} keyboardType="email-address" autoCapitalize="none" />
           <Field label={t('Billing address')} value={fields.address} onChangeText={(v) => set({ address: v })} textContentType="fullStreetAddress" />
@@ -143,7 +172,7 @@ export default function EditClientScreen() {
           ))}
           <BigButton
             kind="second"
-            title={t('＋ Another address')}
+            title={t('＋ Add address')}
             onPress={() => set({ addresses: [...fields.addresses, { label: '', address: '' }] })}
           />
           <Field
@@ -189,7 +218,7 @@ export default function EditClientScreen() {
 
       <View style={[styles.bottom, { paddingBottom: Math.max(insets.bottom, 12), borderTopColor: colors.line }]}>
         {!!error && !!fields && <Text style={styles.error}>{error}</Text>}
-        <BigButton title={id ? t('Save changes') : t('Save client')} onPress={save} busy={busy} disabled={!fields} />
+        {!!fields && <BigButton title={id ? t('Save changes') : t('Save client')} onPress={save} busy={busy} />}
       </View>
     </KeyboardAvoidingView>
   );
@@ -200,6 +229,7 @@ const styles = StyleSheet.create({
   topBtn: { fontSize: 17, fontWeight: '600', width: 64 },
   topTitle: { fontSize: 15, fontWeight: '600' },
   content: { padding: 16, gap: 12, paddingBottom: 40 },
+  title: { fontSize: 26, fontWeight: '800', letterSpacing: -0.3, marginBottom: 4 },
   langCard: { borderRadius: radius.md, padding: 14, gap: 6, marginTop: 4 },
   langTitle: { fontSize: 16, fontWeight: '700' },
   small: { fontSize: 14 },

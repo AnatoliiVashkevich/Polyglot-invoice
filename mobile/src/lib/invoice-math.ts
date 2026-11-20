@@ -36,3 +36,14 @@ export function dueDate(date: string, days: number): string {
   const due = new Date(Date.UTC(y, m - 1, d + days));
   return due.toISOString().slice(0, 10);
 }
+
+/** The same limits as the server: they catch typos like an extra zero. */
+export const MAX_PRICE = 1_000_000;
+export const MAX_QTY = 100_000;
+
+/** 'price' or 'qty' when a line is over the limit, else null. */
+export function overLimit(line: Pick<Line, 'qty' | 'price'>): 'price' | 'qty' | null {
+  if (Math.abs(line.price) > MAX_PRICE) return 'price';
+  if (line.qty > MAX_QTY) return 'qty';
+  return null;
+}

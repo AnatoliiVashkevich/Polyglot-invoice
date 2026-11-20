@@ -1,5 +1,5 @@
 // "Where is the job?" — for a client with more than one address (product-decisions.md §6h).
-// Chips: the billing address first, then the others (Rental, Office…), then "＋ Another address", which adds it to
+// Chips: the billing address first, then the others (Rental, Office…), then "＋ Add address", which adds it to
 // the client right here. The chosen address goes on the job; the PDF shows it as JOB SITE when it isn't the billing one.
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -59,7 +59,7 @@ export function AddressPicker({ main, others, value, onChange, onAdd }: Props) {
           />
         ))}
         {!known && !!chosen && <Chip label={t('This job’s address')} active onPress={() => {}} />}
-        {!adding && <Chip label={t('＋ Another address')} active={false} onPress={() => setAdding(true)} />}
+        {!adding && <Chip label={t('＋ Add address')} active={false} onPress={() => setAdding(true)} />}
       </View>
       {!!chosen && <Text style={[styles.small, { color: colors.muted }]}>📍 {chosen}</Text>}
       {adding && (
