@@ -11,15 +11,15 @@ const LINES: Line[] = [
 ];
 
 test('no tax by default', () => {
-  assert.deepEqual(totals(LINES), { subtotal: 764.5, tax: 0, total: 764.5 });
+  assert.deepEqual(totals(LINES), { subtotal: 764.5, discount: 0, tax: 0, total: 764.5 });
 });
 
 test('sales tax on materials only (the decisions example: 7% → $4.52)', () => {
-  assert.deepEqual(totals(LINES, 7, 'materials'), { subtotal: 764.5, tax: 4.52, total: 769.02 });
+  assert.deepEqual(totals(LINES, 7, 'materials'), { subtotal: 764.5, discount: 0, tax: 4.52, total: 769.02 });
 });
 
 test('sales tax on everything', () => {
-  assert.deepEqual(totals(LINES, 7, 'everything'), { subtotal: 764.5, tax: 53.52, total: 818.02 });
+  assert.deepEqual(totals(LINES, 7, 'everything'), { subtotal: 764.5, discount: 0, tax: 53.52, total: 818.02 });
 });
 
 test('cents are exact', () => {
@@ -56,4 +56,25 @@ test('a line over $1,000,000 or 100,000 pieces is a typo guard, with a clear rea
   assert.equal(overLimit({ qty: 1, price: 1_000_000 }), null);
   assert.equal(overLimit({ qty: 1, price: 20_000_000 }), 'price');
   assert.equal(overLimit({ qty: 200_000, price: 1 }), 'qty');
+});
+
+// ---------- a discount (§6o): the same numbers as server/tests/test_money.py ----------
+const WORK: Line[] = [
+  { text: 'Install doors', qty: 2, price: 200, kind: 'work' },
+  { text: 'Hinges', qty: 1, price: 100, kind: 'material' },
+];
+const pct = (p: number): Line => ({ text: '', qty: 1, price: 0, kind: 'discount', pct: p });
+
+test('a percent discount comes off the subtotal', () => {
+  assert.deepEqual(totals([...WORK, pct(10)]), { subtotal: 500, discount: -50, tax: 0, total: 450 });
+});
+
+test('a fixed discount, and never below zero', () => {
+  assert.equal(totals([...WORK, { text: '', qty: 1, price: 75, kind: 'discount' }]).total, 425);
+  assert.equal(totals([...WORK, { text: '', qty: 1, price: 9999, kind: 'discount' }]).total, 0);
+});
+
+test('sales tax after the discount, shared for materials-only', () => {
+  assert.deepEqual(totals([...WORK, pct(10)], 7, 'everything'), { subtotal: 500, discount: -50, tax: 31.5, total: 481.5 });
+  assert.deepEqual(totals([...WORK, pct(10)], 7, 'materials'), { subtotal: 500, discount: -50, tax: 6.3, total: 456.3 });
 });

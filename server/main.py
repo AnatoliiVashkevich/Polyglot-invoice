@@ -208,7 +208,8 @@ class Line(BaseModel):
     text: str = Field("", max_length=500)
     qty: float = Field(1, ge=0, le=100000)
     price: float = Field(0, ge=-1000000, le=1000000)
-    kind: Literal["work", "material"] = "work"
+    kind: Literal["work", "material", "discount"] = "work"
+    pct: float | None = Field(None, ge=0, le=100)   # a discount line: % of the subtotal (else price is the amount)
     # translations made for the PDFs: {"en": {"src": the text it was made from, "text": the translation}}
     tr: dict[str, dict[str, str | int]] | None = None
 
@@ -302,8 +303,14 @@ def _check_links(data: dict, uid: str) -> None:
 
 
 def _apply_totals(row: dict) -> dict:
-    t = totals(row.get("lines") or [], row.get("tax_rate") or 0, row.get("tax_applies_to") or "materials")
-    return {**row, **{k: float(v) for k, v in t.items()}}
+    lines = row.get("lines") or []
+    t = totals(lines, row.get("tax_rate") or 0, row.get("tax_applies_to") or "materials")
+    if any(x.get("kind") == "discount" for x in lines):   # the discount line keeps its current amount (for the PDF)
+        lines = [{**x, "qty": 1, "price": float(t["discount"])} if x.get("kind") == "discount" else x for x in lines]
+        lines = [x for i, x in enumerate(lines) if x.get("kind") != "discount" or
+                 i == next(j for j, y in enumerate(lines) if y.get("kind") == "discount")]   # one discount per invoice
+        row = {**row, "lines": lines}
+    return {**row, **{k: float(v) for k, v in t.items() if k != "discount"}}
 
 
 @app.get("/api/items")

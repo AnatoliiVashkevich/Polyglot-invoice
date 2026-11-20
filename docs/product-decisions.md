@@ -362,6 +362,17 @@ the website address (polyglotinvoice.com) and a USPTO trademark search.
 - **The client's extra copy in their language is hidden for now** (owner: "hide it and all about it, remind me at the
   last point"): no language question on the client screens. The data stays; switch: `mobile/src/lib/features.ts`.
 
+## 6o. Empty prices and discounts (2026-11-19)
+
+- **A line without a price:** on Next, under that line: "💲 No price on this line. Keep it at $0 (included in the
+  job)?" → **Keep at $0**, or type the price. **Next scrolls to the first line with a question** (price or AI) and
+  asks again on every tap until all are answered.
+- **Discount:** on Review, **＋ Add a discount** → **%** or **$**, the amount, an optional reason ("Returning client").
+  One per invoice / estimate. A % discount follows the lines when they change. Sales tax is counted after the discount
+  (for materials-only tax the discount is shared proportionally). On the PDF it's under the subtotal, not a line:
+  Subtotal → **Discount 10% · Returning client −$50.00** → Sales tax → Total ("Discount" in all 5 languages).
+  Stored as a line with kind "discount" (no database change).
+
 ## 13. Database (decided 2026-11-19)
 
 - The new app **reuses the crm-solo Supabase project and its keys**. Its old tables hold only test data and are

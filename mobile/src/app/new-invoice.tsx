@@ -66,6 +66,18 @@ const DUE_CHOICES: { days: DueDays; label: string }[] = [
 let keySeq = 0;
 const newKey = () => `k${++keySeq}`;
 const emptyWork = (): WorkRow => ({ key: newKey(), text: '', qty: '1', price: '', kind: 'work' });
+// saved lines → the work rows (without the discount line) and the discount box
+const rowsFrom = (lines: Line[]): WorkRow[] =>
+  lines
+    .filter((l) => l.kind !== 'discount')
+    .map((l) => ({ key: newKey(), text: l.text, qty: String(l.qty ?? 1), price: String(l.price ?? ''), kind: l.kind ?? 'work' }));
+const discountFrom = (lines: Line[]) => {
+  const d = lines.find((l) => l.kind === 'discount');
+  if (!d) return null;
+  return d.pct !== undefined && d.pct !== null
+    ? { mode: 'pct' as const, value: String(d.pct), reason: d.text ?? '' }
+    : { mode: 'amount' as const, value: String(Math.abs(Number(d.price) || 0)), reason: d.text ?? '' };
+};
 const daysBetween = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
 // language names in the user's screen language (the chips show each language in its own name)
 const LANGUAGE_NAMES: Record<Lang, string> = { en: 'English', es: 'Spanish', pt: 'Portuguese', ru: 'Russian', uk: 'Ukrainian' };
@@ -100,6 +112,8 @@ export default function NewInvoiceScreen() {
   const [taxOn, setTaxOn] = useState(true);
   // step 7 part 1: "Describe it in one go" → lines (the AI, or the app's quick reader)
   const [describe, setDescribe] = useState('');
+  // a discount (§6o): % of the subtotal or a fixed $ amount, with an optional reason; one per invoice
+  const [discount, setDiscount] = useState<{ mode: 'pct' | 'amount'; value: string; reason: string } | null>(null);
   const [describing, setDescribing] = useState(false);
   const [describeNote, setDescribeNote] = useState('');
   // texts the AI already looked at (made by it, checked, or "Keep as I wrote"), so Next doesn't ask twice
@@ -149,7 +163,8 @@ export default function NewInvoiceScreen() {
           }
           if (source.lines.length) {
             // an estimate, or a task scheduled from one: everything is known, straight to Review
-            setWork(source.lines.map((l) => ({ key: newKey(), text: l.text, qty: String(l.qty ?? 1), price: String(l.price ?? ''), kind: l.kind ?? 'work' })));
+            setWork(rowsFrom(source.lines));
+            setDiscount(discountFrom(source.lines));
             setTaxOn(Number(source.tax_rate) > 0 || Number(s.tax_rate) === 0);
             setStep(cl ? REVIEW : 0);
           } else {
@@ -166,11 +181,8 @@ export default function NewInvoiceScreen() {
           setOriginal(cl);
           setJobAddress(otherAddress(it.address, cl.address));
         }
-        setWork(
-          it.lines.length
-            ? it.lines.map((l) => ({ key: newKey(), text: l.text, qty: String(l.qty ?? 1), price: String(l.price ?? ''), kind: l.kind ?? 'work' }))
-            : [emptyWork()],
-        );
+        setWork(rowsFrom(it.lines).length ? rowsFrom(it.lines) : [emptyWork()]);
+        setDiscount(discountFrom(it.lines));
         setDate(it.date);
         setDueDays(it.due_date ? Math.max(0, daysBetween(it.date, it.due_date)) : 0);
         setNumber(it.number);
@@ -191,7 +203,17 @@ export default function NewInvoiceScreen() {
         .map((w) => ({ text: w.text.trim(), qty: w.qty.trim() ? parseAmount(w.qty) : 1, price: parseAmount(w.price), kind: w.kind })),
     [work],
   );
-  const invoiceLines = workLines;
+  const discountValue = discount ? parseAmount(discount.value) : NaN;
+  const discountOk = !discount || !discount.value.trim() || (discountValue >= 0 && (discount.mode === 'amount' || discountValue <= 100));
+  const invoiceLines: Line[] = useMemo(() => {
+    if (!discount || !(discountValue > 0) || !discountOk) return workLines;
+    const reason = discount.reason.trim();
+    const line: Line =
+      discount.mode === 'pct'
+        ? { text: reason, qty: 1, price: 0, kind: 'discount', pct: discountValue }
+        : { text: reason, qty: 1, price: discountValue, kind: 'discount' };
+    return [...workLines, line];
+  }, [workLines, discount, discountValue, discountOk]);
   // an invoice keeps the tax rate it was made with; a new one takes it from Settings
   const taxRate = editing && Number(editing.tax_rate) > 0 ? Number(editing.tax_rate) : Number(settings?.tax_rate ?? 0);
   const taxAppliesTo = (editing ? editing.tax_applies_to : settings?.tax_applies_to) ?? 'materials';
@@ -311,6 +333,7 @@ export default function NewInvoiceScreen() {
   // Create: with Materials lines on an invoice, first ask whether to save what the user paid as expenses
   const [askMaterials, setAskMaterials] = useState<Line[] | null>(null);
   const create = () => {
+    if (!discountOk) return setError(t('Please check the discount: a percent from 0 to 100, or an amount in dollars.'));
     const materials = workLines.filter((l) => l.kind === 'material');
     if (!isEstimate && materials.length) return setAskMaterials(materials);
     createNow([]);
@@ -332,7 +355,7 @@ export default function NewInvoiceScreen() {
           number: number.trim(),
           title: workLines.map((l) => l.text).join(', ').slice(0, 200),
           address: jobAddress || client.address,
-          lines: workLines,
+          lines: invoiceLines,
           expenses: paid.map((e) => ({ description: e.description, amount: e.amount, add_to_invoice: false })),
           tax_rate: taxOn ? taxRate : 0,
         },
@@ -356,6 +379,7 @@ export default function NewInvoiceScreen() {
 
   const save = async () => {
     if (!editing || !client?.id || busy) return;
+    if (!discountOk) return setError(t('Please check the discount: a percent from 0 to 100, or an amount in dollars.'));
     if (workLines.length === 0) return setError(t('Please add the work and its price.'));
     setBusy(true);
     setError('');
@@ -367,7 +391,7 @@ export default function NewInvoiceScreen() {
         ...(number.trim() !== editing.number ? { number: number.trim() } : {}),
         title: workLines.filter((l) => l.kind === 'work').map((l) => l.text).join(', ').slice(0, 200),
         address: jobAddress || client.address,
-        lines: workLines,
+        lines: invoiceLines,
         tax_rate: taxOn ? taxRate : 0,
         tax_applies_to: taxAppliesTo,
       });
@@ -654,7 +678,7 @@ export default function NewInvoiceScreen() {
             </ReviewCard>
 
             <ReviewCard onPress={() => go(2)}>
-              {invoiceLines.map((l, i) => (
+              {workLines.map((l, i) => (
                 <View key={i} style={styles.reviewLine}>
                   <Text style={[styles.reviewText, { color: colors.text }]}>
                     {l.qty !== 1 ? `${l.qty} × ` : ''}
@@ -664,6 +688,49 @@ export default function NewInvoiceScreen() {
                 </View>
               ))}
             </ReviewCard>
+
+            {/* the discount (§6o) */}
+            {discount ? (
+              <View style={[styles.discountCard, { backgroundColor: colors.card }]}>
+                <View style={styles.reviewLine}>
+                  <Text style={[styles.cardLabel, { color: colors.muted }]}>{t('DISCOUNT')}</Text>
+                  <Pressable onPress={() => setDiscount(null)} hitSlop={10} accessibilityRole="button">
+                    <Text style={[styles.small, { color: '#E5484D', fontWeight: '700' }]}>{t('Remove')}</Text>
+                  </Pressable>
+                </View>
+                <View style={styles.lineRow}>
+                  <Chip label="%" active={discount.mode === 'pct'} onPress={() => setDiscount({ ...discount, mode: 'pct' })} />
+                  <Chip label="$" active={discount.mode === 'amount'} onPress={() => setDiscount({ ...discount, mode: 'amount' })} />
+                  <TextInput
+                    value={discount.value}
+                    onChangeText={(v) => setDiscount({ ...discount, value: v })}
+                    placeholder={discount.mode === 'pct' ? '10' : '50'}
+                    placeholderTextColor={colors.faint}
+                    keyboardType="decimal-pad"
+                    autoFocus={!discount.value}
+                    style={[styles.price, { color: colors.text, borderColor: colors.line }]}
+                  />
+                </View>
+                <TextInput
+                  value={discount.reason}
+                  onChangeText={(v) => setDiscount({ ...discount, reason: v })}
+                  placeholder={t('Reason (optional), e.g. Returning client')}
+                  placeholderTextColor={colors.faint}
+                  style={[styles.lineText, styles.lineBox, { color: colors.text, borderColor: colors.line, backgroundColor: colors.bg }]}
+                />
+                {!discountOk ? (
+                  <Text style={[styles.small, { color: '#E5484D' }]}>{t('A percent from 0 to 100, or an amount in dollars.')}</Text>
+                ) : (
+                  sum.discount < 0 && (
+                    <Text style={[styles.reviewText, { color: colors.text }]}>
+                      {t('Subtotal')} {money(sum.subtotal)} · {t('Discount')} −{money(-sum.discount)}
+                    </Text>
+                  )
+                )}
+              </View>
+            ) : (
+              <BigButton kind="second" title={t('＋ Add a discount')} onPress={() => setDiscount({ mode: 'pct', value: '', reason: '' })} />
+            )}
 
             {taxRate > 0 && (
               <View style={[styles.taxRow, { backgroundColor: colors.card }]}>
@@ -787,6 +854,7 @@ const styles = StyleSheet.create({
   lineCard: { borderRadius: radius.md, padding: 12, gap: 10 },
   askBox: { borderWidth: 1.5, borderRadius: radius.sm, padding: 10, gap: 8 },
   askText: { fontSize: 15, fontWeight: '600' },
+  discountCard: { borderRadius: radius.md, padding: 12, gap: 10 },
   describeCard: { borderRadius: radius.md, padding: 12, gap: 10, borderWidth: 1.5 },
   describeTitle: { fontSize: 16, fontWeight: '700' },
   lineText: { fontSize: 17, minHeight: 28 },

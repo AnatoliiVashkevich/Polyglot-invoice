@@ -70,7 +70,9 @@ def fonts() -> tuple[str, str]:
 
 
 def usd(x) -> str:
-    return f"${cents(x):,.2f}"
+    """$1,250.00 · a discount: -$50.00"""
+    c = cents(x)
+    return f"-${-c:,.2f}" if c < 0 else f"${c:,.2f}"
 
 
 def qty_text(x) -> str:
@@ -171,7 +173,7 @@ def build_pdf(item: dict, client: dict, business: dict, lang: str = "en") -> byt
 
     # ---- lines
     rows = [[P(L["Description"], bold), P(L["Qty"], right_bold), P(L["Rate"], right_bold), P(L["Amount"], right_bold)]]
-    for line in item.get("lines") or []:
+    for line in [x for x in item.get("lines") or [] if x.get("kind") != "discount"]:   # the discount goes under the subtotal
         rows.append([P(line.get("text") or "-"), P(qty_text(line.get("qty")), right),
                      P(usd(line.get("price")), right), P(usd(line_amount(line)), right)])
     if len(rows) == 1:
@@ -186,10 +188,17 @@ def build_pdf(item: dict, client: dict, business: dict, lang: str = "en") -> byt
     # ---- totals: Subtotal · Sales tax (only when there is tax) · TOTAL
     total_label = L["ESTIMATED TOTAL"] if is_estimate else (L["TOTAL PAID"] if paid else L["TOTAL DUE"])
     sums = []
+    disc = next((x for x in item.get("lines") or [] if x.get("kind") == "discount"), None)
+    if cents(item.get("tax")) > 0 or disc:
+        sums.append([P(L["SUBTOTAL"], right), P(usd(item.get("subtotal")), right)])
+    if disc:   # "Discount 10% · Returning client   -$50.00"
+        label = " ".join(x for x in (L["DISCOUNT"], f"{float(disc['pct']):g}%" if disc.get("pct") not in (None, "") else "") if x)
+        if (disc.get("text") or "").strip():
+            label += f" · {disc['text'].strip()}"
+        sums.append([P(label, right), P(usd(disc.get("price")), right)])
     if cents(item.get("tax")) > 0:
         rate = f"{float(item.get('tax_rate') or 0):g}%"
-        sums += [[P(L["SUBTOTAL"], right), P(usd(item.get("subtotal")), right)],
-                 [P(f"{L['SALES TAX']} {rate}", right), P(usd(item.get("tax")), right)]]
+        sums.append([P(f"{L['SALES TAX']} {rate}", right), P(usd(item.get("tax")), right)])
     sums.append([P(total_label, right_bold),
                  P(usd(item.get("total")), ParagraphStyle("t", parent=right_bold, fontSize=14, leading=18))])
     totals = Table(sums, colWidths=[5.7 * inch, 1.2 * inch])

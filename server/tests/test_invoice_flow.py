@@ -102,3 +102,20 @@ def test_paid_pdf_says_paid_and_hides_payment_details(api):
 def test_job_site_only_when_elsewhere(api):
     inv = make_invoice(api, address="77 Beach Rd, Delray Beach")
     assert "JOB SITE" in pdf_text(api, inv["id"]) and "77 Beach Rd" in pdf_text(api, inv["id"])
+
+
+def test_a_discount_on_the_invoice_and_its_pdf(api):
+    """§6o: a % discount stays right when the lines change, and shows under the subtotal (not as a line)."""
+    setup_business(api)
+    inv = make_invoice(api, expenses=[], lines=[{"text": "Install doors", "qty": 2, "price": 200},
+                                                {"kind": "discount", "pct": 10, "text": "Returning client"}])
+    assert (inv["subtotal"], inv["total"]) == (400, 360)
+    assert [x["price"] for x in inv["lines"] if x.get("kind") == "discount"] == [-40]
+    text = pdf_text(api, inv["id"])
+    assert "Discount 10% · Returning client" in text and "-$40.00" in text and "SUBTOTAL" in text.upper()
+    assert text.count("Returning client") == 1                                  # not repeated as a table line
+    r = api.patch(f"/api/items/{inv['id']}", json={"lines": [{"text": "Install doors", "qty": 3, "price": 200},
+                                                              {"kind": "discount", "pct": 10, "text": "Returning client"},
+                                                              {"kind": "discount", "price": 5}]})
+    assert r.json()["total"] == 540 and len([x for x in r.json()["lines"] if x.get("kind") == "discount"]) == 1
+    assert "Descuento 10%" in pdf_text(api, inv["id"], lang="es")

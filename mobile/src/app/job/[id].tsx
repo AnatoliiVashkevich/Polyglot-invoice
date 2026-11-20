@@ -360,7 +360,7 @@ export default function JobScreen() {
               {item.lines.map((l, i) => (
                 <View key={i} style={styles.priceRow}>
                   <Text style={[styles.body, { color: colors.text, flex: 1 }]}>
-                    {l.text}
+                    {l.kind === 'discount' ? `${t('Discount')}${l.pct ? ` ${l.pct}%` : ''}${l.text ? ` · ${l.text}` : ''}` : l.text}
                     {Number(l.qty ?? 1) !== 1 ? ` × ${l.qty}` : ''}
                   </Text>
                   <Text style={[styles.body, { color: colors.text }]}>{money(Number(l.qty ?? 1) * Number(l.price ?? 0))}</Text>
