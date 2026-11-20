@@ -258,6 +258,21 @@ the website address (polyglotinvoice.com) and a USPTO trademark search.
 - **The first question is "Choose the customer"** (not "Who is it for?", which could mean "for me").
 - **No flash of the first question** when a task / invoice is made from another job: nothing shows until it's loaded.
 
+## 6g. Repeating tasks and notes (decided 2026-11-19)
+
+- **Repeat** works for **tasks and notes** (not invoices). In New task / New note, after "When?", a screen
+  **"Repeat?"**: Never (default) · Every week · Every 2 weeks · Every month · Every year · Custom (every N days / weeks /
+  months), and **Until** a date or **No end date**.
+- Each visit shows on its own day in the calendar with its own reminder, and is marked done on its own.
+- On a repeating task the big button is **✓ Done**; **Make invoice** stays as a smaller button.
+- Editing or deleting one visit asks, like the iPhone Calendar: **Only this one** / **This and all next ones**.
+- **A task always has a customer** (owner: it should have contact info: Call / Text / Navigate, the address, invoice
+  later, the client's page). The **Skip** on the customer step goes away.
+- **Notes** (＋ → Note): text and a day; optional time, reminder and repeat; no customer, no prices; their own color in
+  the calendar. Anything without a customer is a note ("Pick up tile", "Pay the truck insurance").
+- A note has an **optional ✓ Done**: it fades like a paid invoice; never turns red, never nags. On a repeating note ✓
+  marks only that day.
+
 ## 13. Database (decided 2026-11-19)
 
 - The new app **reuses the crm-solo Supabase project and its keys**. Its old tables hold only test data and are
@@ -269,9 +284,8 @@ the website address (polyglotinvoice.com) and a USPTO trademark search.
    we split it into lines ("door installation 300", Next line, "2 double swing doors installation and adjustment 700"),
    or a "type a line, tap Next line" flow. Discuss now and again when the AI is connected (step 8, voice): these
    screens will be reworked then anyway.
-2. **Repeating tasks:** every week / month / year / custom period, and "repeat until" a date. The logic is still to
-   discuss (what happens to the next one when one is done, editing one or all, reminders, invoices for each).
+2. ~~Repeating tasks~~ → decided, §6g.
 3. **Keep closed jobs as notes / history:** done tasks, sent estimates and paid invoices stay visible as a record.
-4. **Notes:** a task without a customer may really be a note; maybe add plain notes.
+4. ~~Notes~~ → decided, §6g.
 5. **Charging before the visit (prepayment / deposit):** today an invoice can already be made from an estimate before
    the job ("Make invoice"). Still to discuss: a deposit (part now, the rest after the job) and how it shows.
