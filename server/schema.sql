@@ -53,8 +53,10 @@ create table if not exists clients (
   address            text not null default '',
   notes              text not null default '',
   preferred_language text not null default '' check (preferred_language in ('','en','es','pt','ru','uk')),
+  addresses          jsonb not null default '[]'::jsonb,   -- other job addresses: [{"label": "Rental", "address": "…"}]
   created_at         timestamptz not null default now()
 );
+alter table clients add column if not exists addresses jsonb not null default '[]'::jsonb;   -- added 2026-11-19
 create index if not exists clients_owner_idx on clients (owner_id);
 
 -- ---------- Items: task -> estimate -> invoice ----------

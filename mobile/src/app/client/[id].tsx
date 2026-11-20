@@ -5,7 +5,7 @@
 // The ＋ here pre-fills this client (the questionnaire starts at "check the client's info"). ✏️ Edit → edit-client.
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DayRow } from '@/components/calendar/day-list';
@@ -13,7 +13,7 @@ import { ContactBar } from '@/components/contact-bar';
 import { CreateButton } from '@/components/create-button';
 import { LANGUAGES, t } from '@/i18n';
 import { Chip } from '@/components/form';
-import { clientMoney, filterJobs, JOB_FILTERS, monthGroups, newestFirst, type JobFilter } from '@/lib/client-tools';
+import { addressOptions, clientMoney, filterJobs, mapsUrl, JOB_FILTERS, monthGroups, newestFirst, type JobFilter } from '@/lib/client-tools';
 import { getClient, type Client } from '@/lib/clients';
 import { fetchClientItems } from '@/lib/items';
 import { money } from '@/lib/money';
@@ -100,7 +100,6 @@ export default function ClientScreen() {
             {[
               ['📞', client.phone],
               ['✉️', client.email],
-              ['📍', client.address],
             ]
               .filter(([, v]) => v)
               .map(([icon, v]) => (
@@ -108,6 +107,20 @@ export default function ClientScreen() {
                   {icon} {v}
                 </Text>
               ))}
+            {addressOptions(client.address, client.addresses).map((a) => (
+              <View key={a.address} style={styles.addrRow}>
+                <Text style={[styles.info, { color: colors.text, flex: 1 }]} selectable>
+                  📍 {a.main ? '' : `${a.label || t('Other')}: `}
+                  {a.address}
+                </Text>
+                <Pressable
+                  onPress={() => Linking.openURL(mapsUrl(a.address))}
+                  accessibilityRole="button"
+                  style={({ pressed }) => [styles.goBtn, { borderColor: colors.line, backgroundColor: pressed ? colors.line : colors.bg }]}>
+                  <Text style={[styles.goText, { color: colors.accent }]}>{t('Navigate')}</Text>
+                </Pressable>
+              </View>
+            ))}
             <Text style={[styles.info, { color: colors.muted }]}>
               🌐 {client.preferred_language ? t('Also gets a copy in {lang}', { lang: LANGUAGES[client.preferred_language] }) : t('No extra language')}
             </Text>
@@ -176,6 +189,9 @@ const styles = StyleSheet.create({
   card: { borderRadius: radius.md, padding: 14, gap: 6 },
   info: { fontSize: 16 },
   section: { fontSize: 12, fontWeight: '700', letterSpacing: 0.6, marginTop: 4 },
+  addrRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  goBtn: { height: 32, paddingHorizontal: 10, borderRadius: radius.pill, borderWidth: 1, justifyContent: 'center' },
+  goText: { fontSize: 13, fontWeight: '700' },
   month: { fontSize: 13, fontWeight: '700', marginLeft: 4, marginTop: 6 },
   more: { height: 46, borderRadius: radius.md, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   moreText: { fontSize: 15, fontWeight: '700' },

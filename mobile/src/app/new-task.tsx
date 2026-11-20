@@ -12,10 +12,11 @@ import { ActivityIndicator, Alert, KeyboardAvoidingView, Pressable, ScrollView, 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BigButton, Chip } from '@/components/form';
+import { AddressPicker } from '@/components/address-picker';
 import { CustomerStep } from '@/components/invoice/customer-step';
 import { t } from '@/i18n';
 import { api } from '@/lib/api';
-import { fetchClients, saveClient, type Client, type ClientDraft } from '@/lib/clients';
+import { addClientAddress, fetchClients, saveClient, type Client, type ClientDraft } from '@/lib/clients';
 import { isoDate, parseIso, todayIso } from '@/lib/dates';
 import { getItem, patchItem, type ServerItem } from '@/lib/items';
 import { askForNotifications, syncNotifications } from '@/lib/notifications';
@@ -42,7 +43,8 @@ export default function NewTaskScreen() {
   const [editing, setEditing] = useState<ServerItem | null>(null);
 
   const [step, setStep] = useState(0);
-  const [client, setClient] = useState<{ id: string; name: string; address: string } | null>(null);
+  const [client, setClient] = useState<Client | null>(null);
+  const [jobAddress, setJobAddress] = useState(''); // '' = the client's billing address
   const [what, setWhat] = useState('');
   const [date, setDate] = useState(todayIso());
   const [time, setTime] = useState('09:00');
@@ -58,12 +60,15 @@ export default function NewTaskScreen() {
         setClients(c);
         const pre = clientParam ? c.find((x) => x.id === clientParam) : undefined;
         if (pre && !it) {
-          setClient({ id: pre.id, name: pre.name, address: pre.address });
+          setClient(pre);
           setStep(1);
         }
         if (!it) return;
         const cl = c.find((x) => x.id === it.client_id);
-        if (cl) setClient({ id: cl.id, name: cl.name, address: cl.address });
+        if (cl) {
+          setClient(cl);
+          if (it.address && it.address.trim().toLowerCase() !== cl.address.trim().toLowerCase()) setJobAddress(it.address);
+        }
         setWhat(it.title || it.lines.map((l) => l.text).join(', '));
         if (editId) {
           setEditing(it);
@@ -95,14 +100,16 @@ export default function NewTaskScreen() {
   const pick = async (draft: ClientDraft, original?: Client) => {
     setError('');
     if (draft.id) {
-      setClient({ id: draft.id, name: draft.name, address: draft.address });
+      setClient(clients?.find((c) => c.id === draft.id) ?? (original as Client));
+      setJobAddress('');
       return go(1);
     }
     setBusy(true); // a phone contact or a new name: saved as a client right away (no duplicates)
     try {
       const saved = await saveClient(draft, original);
       setClients((list) => [saved, ...(list ?? []).filter((c) => c.id !== saved.id)]);
-      setClient({ id: saved.id, name: saved.name, address: saved.address });
+      setClient(saved);
+      setJobAddress('');
       go(1);
     } catch (e) {
       setError(t(e instanceof Error ? e.message : 'Something went wrong.'));
@@ -125,7 +132,7 @@ export default function NewTaskScreen() {
       const body = {
         client_id: client?.id ?? null,
         title: what.trim(),
-        address: client?.address ?? '',
+        address: jobAddress || client?.address || '',
         date,
         time,
         reminder_minutes: reminder,
@@ -159,15 +166,26 @@ export default function NewTaskScreen() {
         return <CustomerStep clients={clients} onPick={pick} />;
       case 1:
         return (
-          <TextInput
-            value={what}
-            onChangeText={setWhat}
-            placeholder={t('e.g. Mount TV and hide the cables')}
-            placeholderTextColor={colors.faint}
-            autoFocus
-            multiline
-            style={[styles.what, { backgroundColor: colors.card, borderColor: colors.line, color: colors.text }]}
-          />
+          <View style={{ gap: 12 }}>
+            <TextInput
+              value={what}
+              onChangeText={setWhat}
+              placeholder={t('e.g. Mount TV and hide the cables')}
+              placeholderTextColor={colors.faint}
+              autoFocus={!what}
+              multiline
+              style={[styles.what, { backgroundColor: colors.card, borderColor: colors.line, color: colors.text }]}
+            />
+            {!!client && (
+              <AddressPicker
+                main={client.address}
+                others={client.addresses ?? []}
+                value={jobAddress}
+                onChange={setJobAddress}
+                onAdd={async (a) => setClient(await addClientAddress(client, a))}
+              />
+            )}
+          </View>
         );
       case 2:
         return (

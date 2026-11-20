@@ -1,6 +1,7 @@
 // Clients, settings and invoice numbers from the server.
 import { api } from '@/lib/api';
 import type { Lang } from '@/i18n';
+import type { ClientAddress } from '@/lib/client-tools';
 import type { TaxAppliesTo } from '@/lib/invoice-math';
 
 export type Client = {
@@ -11,12 +12,13 @@ export type Client = {
   address: string;
   notes: string;
   preferred_language: '' | Lang;
+  addresses?: ClientAddress[]; // other job addresses (address = the billing one)
   last_used?: string; // when their newest job was created ('' = never)
   paid?: number; // the Clients list: all paid invoices
   owes?: number; // the Clients list: invoices sent and waiting for money
 };
 
-export type ClientDraft = Omit<Client, 'id' | 'notes' | 'last_used'> & { id?: string; fromContacts?: boolean };
+export type ClientDraft = Omit<Client, 'id' | 'notes' | 'last_used' | 'paid' | 'owes' | 'addresses'> & { id?: string; fromContacts?: boolean };
 
 export type Settings = {
   name: string;
@@ -35,7 +37,13 @@ export const fetchClients = () => api<Client[]>('/api/clients');
 
 export const getClient = (id: string) => api<Client>(`/api/clients/${id}`);
 
-export type ClientFields = Pick<Client, 'name' | 'phone' | 'email' | 'address' | 'notes' | 'preferred_language'>;
+export type ClientFields = Pick<Client, 'name' | 'phone' | 'email' | 'address' | 'notes' | 'preferred_language'> & {
+  addresses: ClientAddress[];
+};
+
+/** "＋ Another address" while making a job: added to the client, returns the client as it is now. */
+export const addClientAddress = (client: Client, a: ClientAddress) =>
+  api<Client>(`/api/clients/${client.id}`, { method: 'PATCH', body: { addresses: [...(client.addresses ?? []), a] } });
 
 /** The client page's Edit / New client: create (id empty) or update. */
 export const storeClient = (fields: ClientFields, id?: string) =>

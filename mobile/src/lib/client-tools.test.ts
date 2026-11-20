@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { callUrl, clientMoney, filterJobs, mapsUrl, matches, monthGroups, newestFirst, phoneKey, textUrl } from './client-tools.ts';
+import { addressOptions, callUrl, clientMoney, filterJobs, mapsUrl, matches, monthGroups, newestFirst, phoneKey, textUrl } from './client-tools.ts';
 
 test('search finds by any part of the name, email, or 3+ digits of the phone', () => {
   assert.equal(matches('ann', 'Ann Lee', '561-555-0101', ''), true);
@@ -66,4 +66,17 @@ test('jobs grouped by month with the invoiced amount', () => {
     { date: '2026-10-30', kind: 'estimate', status: 'sent', amount: 900 },
   ]);
   assert.deepEqual(groups.map((g) => [g.month, g.items.length, g.invoiced]), [['2026-11', 3, 300.3], ['2026-10', 1, 0]]);
+});
+
+test('a client\'s addresses: the billing one first, then the others, without empty or repeated ones', () => {
+  const opts = addressOptions('12 Palm St', [
+    { label: 'Rental', address: '5 Oak Ave' },
+    { label: 'Dup', address: '12 palm st ' },
+    { label: 'Empty', address: '  ' },
+  ]);
+  assert.deepEqual(opts, [
+    { label: '', address: '12 Palm St', main: true },
+    { label: 'Rental', address: '5 Oak Ave', main: false },
+  ]);
+  assert.deepEqual(addressOptions('', [{ label: 'Office', address: '1 Main' }]), [{ label: 'Office', address: '1 Main', main: false }]);
 });

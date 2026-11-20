@@ -26,11 +26,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BigButton, Chip, Field, ReviewCard } from '@/components/form';
 import { BusinessSheet } from '@/components/business-sheet';
+import { AddressPicker } from '@/components/address-picker';
 import { CustomerStep } from '@/components/invoice/customer-step';
 import { MaterialsExpenseSheet, type PaidExpense } from '@/components/materials-expense-sheet';
 import { LANGUAGES, t, type Lang } from '@/i18n';
 import { api, ApiError } from '@/lib/api';
-import { fetchClients, fetchNextNumber, fetchSettings, saveClient, type Client, type ClientDraft, type Settings } from '@/lib/clients';
+import { addClientAddress, fetchClients, fetchNextNumber, fetchSettings, saveClient, type Client, type ClientDraft, type Settings } from '@/lib/clients';
 import { formatDay, isoDate, parseIso, todayIso } from '@/lib/dates';
 import { dueDate, lineCents, parseAmount, totals, type Line, type LineKind } from '@/lib/invoice-math';
 import { getItem, patchItem, sendInvoice, type ServerItem } from '@/lib/items';
@@ -57,6 +58,8 @@ const daysBetween = (a: string, b: string) => Math.round((Date.parse(b) - Date.p
 // language names in the user's screen language (the chips show each language in its own name)
 const LANGUAGE_NAMES: Record<Lang, string> = { en: 'English', es: 'Spanish', pt: 'Portuguese', ru: 'Russian', uk: 'Ukrainian' };
 const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? '';
+/** A job's address when it isn't the client's billing address ('' when it is). */
+const otherAddress = (job: string, billing: string) => (job && job.trim().toLowerCase() !== billing.trim().toLowerCase() ? job : '');
 
 export default function NewInvoiceScreen() {
   const colors = useColors();
@@ -77,6 +80,7 @@ export default function NewInvoiceScreen() {
   const [step, setStep] = useState(0);
   const [client, setClient] = useState<ClientDraft | null>(null);
   const [original, setOriginal] = useState<Client | undefined>();
+  const [jobAddress, setJobAddress] = useState(''); // '' = the client's billing address
   const [work, setWork] = useState<WorkRow[]>([emptyWork()]);
   const [date, setDate] = useState(todayIso());
   const [dueDays, setDueDays] = useState<DueDays>(0);
@@ -114,6 +118,7 @@ export default function NewInvoiceScreen() {
           if (cl) {
             setClient({ id: cl.id, name: cl.name, phone: cl.phone, email: cl.email, address: cl.address, preferred_language: cl.preferred_language });
             setOriginal(cl);
+            setJobAddress(otherAddress(source.address, cl.address));
           }
           if (source.lines.length) {
             // an estimate, or a task scheduled from one: everything is known, straight to Review
@@ -132,6 +137,7 @@ export default function NewInvoiceScreen() {
         if (cl) {
           setClient({ id: cl.id, name: cl.name, phone: cl.phone, email: cl.email, address: cl.address, preferred_language: cl.preferred_language });
           setOriginal(cl);
+          setJobAddress(otherAddress(it.address, cl.address));
         }
         setWork(
           it.lines.length
@@ -237,7 +243,7 @@ export default function NewInvoiceScreen() {
           ...(fromId ? { from_item_id: fromId } : {}),
           number: number.trim(),
           title: workLines.map((l) => l.text).join(', ').slice(0, 200),
-          address: client.address,
+          address: jobAddress || client.address,
           lines: workLines,
           expenses: paid.map((e) => ({ description: e.description, amount: e.amount, add_to_invoice: false })),
           tax_rate: taxOn ? taxRate : 0,
@@ -272,7 +278,7 @@ export default function NewInvoiceScreen() {
         ...(isEstimate ? {} : { due_date: dueDate(date, dueDays) }),
         ...(number.trim() !== editing.number ? { number: number.trim() } : {}),
         title: workLines.filter((l) => l.kind === 'work').map((l) => l.text).join(', ').slice(0, 200),
-        address: client.address,
+        address: jobAddress || client.address,
         lines: workLines,
         tax_rate: taxOn ? taxRate : 0,
         tax_applies_to: taxAppliesTo,
@@ -352,6 +358,15 @@ export default function NewInvoiceScreen() {
             <Field label={t('Phone')} value={client.phone} onChangeText={(v) => setC({ phone: v })} keyboardType="phone-pad" textContentType="telephoneNumber" />
             <Field label={t('Email')} value={client.email} onChangeText={(v) => setC({ email: v })} keyboardType="email-address" autoCapitalize="none" />
             <Field label={t('Address')} value={client.address} onChangeText={(v) => setC({ address: v })} textContentType="fullStreetAddress" />
+            {!!client.id && !!original && (
+              <AddressPicker
+                main={client.address}
+                others={original.addresses ?? []}
+                value={jobAddress}
+                onChange={setJobAddress}
+                onAdd={async (a) => setOriginal(await addClientAddress(original, a))}
+              />
+            )}
             {/* the client's language: an extra translated copy (product-decisions.md §9), asked as a friendly question */}
             <View style={[styles.langCard, { backgroundColor: colors.card }]}>
               <Text style={[styles.langTitle, { color: colors.text }]}>{t('Also send a copy in your client’s language?')}</Text>
@@ -489,6 +504,11 @@ export default function NewInvoiceScreen() {
                     {line}
                   </Text>
                 ))}
+              {!!jobAddress && (
+                <Text style={[styles.small, { color: colors.text, marginTop: 4 }]}>
+                  {t('JOB SITE')}: {jobAddress}
+                </Text>
+              )}
             </ReviewCard>
 
             <ReviewCard onPress={() => go(2)}>

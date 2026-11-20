@@ -69,3 +69,20 @@ export function monthGroups<T extends MoneyItem & { date: string }>(items: T[]) 
   }
   return groups;
 }
+
+export type ClientAddress = { label: string; address: string };
+
+/** A client's addresses for "Where is the job?": the main (billing) one first, then the others; no empty or repeated ones. */
+export function addressOptions(main: string, others: ClientAddress[] = []): (ClientAddress & { main: boolean })[] {
+  const out: (ClientAddress & { main: boolean })[] = [];
+  const seen = new Set<string>();
+  const add = (a: ClientAddress, isMain: boolean) => {
+    const key = a.address.trim().toLowerCase();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    out.push({ label: a.label.trim(), address: a.address.trim(), main: isMain });
+  };
+  add({ label: '', address: main ?? '' }, true);
+  others.forEach((a) => add(a, false));
+  return out;
+}

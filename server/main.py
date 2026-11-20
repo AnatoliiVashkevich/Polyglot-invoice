@@ -88,6 +88,12 @@ def patch_settings(body: SettingsPatch, uid: str = Depends(auth.current_user)):
 # =====================================================================================================
 # Clients
 # =====================================================================================================
+class ClientAddress(BaseModel):
+    """One more address of a client (a rental, an office…). The PDF shows it as JOB SITE."""
+    label: str = Field("", max_length=60)
+    address: str = Field(..., min_length=1, max_length=500)
+
+
 class ClientIn(BaseModel):
     name: str = Field("", max_length=200)
     phone: str = Field("", max_length=50)
@@ -95,6 +101,7 @@ class ClientIn(BaseModel):
     address: str = Field("", max_length=500)
     notes: str = Field("", max_length=5000)
     preferred_language: Literal["", "en", "es", "pt", "ru", "uk"] = ""
+    addresses: list[ClientAddress] | None = None   # other job addresses (the main `address` is the billing one)
     # from the phone contacts: if a client with the same phone or email exists, use it (no duplicate)
     use_existing: bool = False
 
@@ -106,6 +113,7 @@ class ClientPatch(BaseModel):
     address: str | None = Field(None, max_length=500)
     notes: str | None = Field(None, max_length=5000)
     preferred_language: Literal["", "en", "es", "pt", "ru", "uk"] | None = None
+    addresses: list[ClientAddress] | None = Field(None, max_length=20)
 
 
 def _client_or_404(client_id, uid) -> dict:
@@ -152,7 +160,7 @@ def list_clients(uid: str = Depends(auth.current_user)):
 
 @app.post("/api/clients", status_code=201)
 def create_client(body: ClientIn, response: Response, uid: str = Depends(auth.current_user)):
-    data = body.model_dump(exclude={"use_existing"})
+    data = body.model_dump(exclude={"use_existing"}, exclude_none=True)
     data["name"] = data["name"].strip()
     if not data["name"]:
         raise HTTPException(400, "Please enter the client's name.")

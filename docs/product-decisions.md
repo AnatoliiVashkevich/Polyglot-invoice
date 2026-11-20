@@ -273,6 +273,19 @@ the website address (polyglotinvoice.com) and a USPTO trademark search.
 - A note has an **optional ✓ Done**: it fades like a paid invoice; never turns red, never nags. On a repeating note ✓
   marks only that day.
 
+## 6h. Clients, improved (decided 2026-11-19)
+
+- **"Client", not "customer"**, everywhere in the app (owner: "customer sounds wrong").
+- **The client's page with many jobs:** filter buttons **All · Invoices · Estimates · Tasks · Owes** (with counts),
+  jobs **grouped by month** ("November 2026 · 4 · $2,300 invoiced"), **20 at a time** with **Show more**.
+- **From every job to the client:** on a task, estimate or invoice the client's name opens their page, and
+  **Call · Text · Navigate** are right there (Navigate goes to the job's address).
+- **Several addresses per client:** the main one is the **Billing address**; **Other addresses** have a short name
+  (Rental, Office…). Making a job for a saved client asks **"Where is the job?"** (chips; **＋ Another address** adds
+  one to the client right there). The PDF shows JOB SITE when it isn't the billing address. On the client's page every
+  address has its own **Navigate**.
+- History: finished jobs stay in the calendar (faded, ✓) and on the client's page; that is enough (owner, 2026-11-19).
+
 ## 13. Database (decided 2026-11-19)
 
 - The new app **reuses the crm-solo Supabase project and its keys**. Its old tables hold only test data and are
@@ -285,7 +298,7 @@ the website address (polyglotinvoice.com) and a USPTO trademark search.
    or a "type a line, tap Next line" flow. Discuss now and again when the AI is connected (step 8, voice): these
    screens will be reworked then anyway.
 2. ~~Repeating tasks~~ → decided, §6g.
-3. **Keep closed jobs as notes / history:** done tasks, sent estimates and paid invoices stay visible as a record.
+3. ~~History~~ → decided, §6h (the calendar and the client's page are enough).
 4. ~~Notes~~ → decided, §6g.
 5. **Charging before the visit (prepayment / deposit):** today an invoice can already be made from an estimate before
    the job ("Make invoice"). Still to discuss: a deposit (part now, the rest after the job) and how it shows.

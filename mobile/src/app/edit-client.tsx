@@ -1,5 +1,6 @@
 // EDIT CLIENT (/edit-client?id=…) and NEW CLIENT (/edit-client): one screen with every field, Save at the bottom.
 // Editing also offers "Delete client": their jobs and expenses stay (without the client), so no money record is lost.
+// "Other addresses": a rental, an office… (the main Address is the billing one); jobs can be at any of them.
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -11,7 +12,7 @@ import { LANGUAGES, t, type Lang } from '@/i18n';
 import { deleteClient, fetchSettings, getClient, storeClient, type ClientFields } from '@/lib/clients';
 import { kindColors, radius, useColors } from '@/theme';
 
-const EMPTY: ClientFields = { name: '', phone: '', email: '', address: '', notes: '', preferred_language: '' };
+const EMPTY: ClientFields = { name: '', phone: '', email: '', address: '', notes: '', preferred_language: '', addresses: [] };
 
 export default function EditClientScreen() {
   const colors = useColors();
@@ -30,7 +31,15 @@ export default function EditClientScreen() {
     if (!id) return;
     getClient(id)
       .then((c) => {
-        const f = { name: c.name, phone: c.phone, email: c.email, address: c.address, notes: c.notes ?? '', preferred_language: c.preferred_language };
+        const f: ClientFields = {
+          name: c.name,
+          phone: c.phone,
+          email: c.email,
+          address: c.address,
+          notes: c.notes ?? '',
+          preferred_language: c.preferred_language,
+          addresses: c.addresses ?? [],
+        };
         setFields(f);
         setStart(f);
       })
@@ -38,6 +47,8 @@ export default function EditClientScreen() {
   }, [id]);
 
   const set = (patch: Partial<ClientFields>) => setFields((f) => (f ? { ...f, ...patch } : f));
+  const setAddr = (i: number, patch: Partial<ClientFields['addresses'][number]>) =>
+    setFields((f) => (f ? { ...f, addresses: f.addresses.map((a, j) => (j === i ? { ...a, ...patch } : a)) } : f));
 
   const close = () => {
     if (!fields || JSON.stringify(fields) === JSON.stringify(start)) return router.back();
@@ -53,8 +64,18 @@ export default function EditClientScreen() {
     setBusy(true);
     setError('');
     try {
-      const trimmed = Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, String(v).trim()])) as ClientFields;
-      const saved = await storeClient(trimmed, id);
+      const trimmed: ClientFields = {
+        name: fields.name.trim(),
+        phone: fields.phone.trim(),
+        email: fields.email.trim(),
+        address: fields.address.trim(),
+        notes: fields.notes.trim(),
+        preferred_language: fields.preferred_language,
+        addresses: fields.addresses.map((a) => ({ label: a.label.trim(), address: a.address.trim() })).filter((a) => a.address),
+      };
+      // a new client without other addresses doesn't send the list (works before the database has the column)
+      const body = !id && trimmed.addresses.length === 0 ? { ...trimmed, addresses: undefined } : trimmed;
+      const saved = await storeClient(body as ClientFields, id);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       if (id) router.back();
       else router.replace({ pathname: '/client/[id]', params: { id: saved.id } });
@@ -104,7 +125,27 @@ export default function EditClientScreen() {
           <Field label={t('Name')} value={fields.name} onChangeText={(v) => set({ name: v })} autoCapitalize="words" autoFocus={!id} />
           <Field label={t('Phone')} value={fields.phone} onChangeText={(v) => set({ phone: v })} keyboardType="phone-pad" textContentType="telephoneNumber" />
           <Field label={t('Email')} value={fields.email} onChangeText={(v) => set({ email: v })} keyboardType="email-address" autoCapitalize="none" />
-          <Field label={t('Address')} value={fields.address} onChangeText={(v) => set({ address: v })} textContentType="fullStreetAddress" />
+          <Field label={t('Billing address')} value={fields.address} onChangeText={(v) => set({ address: v })} textContentType="fullStreetAddress" />
+          {fields.addresses.map((a, i) => (
+            <View key={i} style={[styles.addrCard, { backgroundColor: colors.card }]}>
+              <View style={styles.addrHead}>
+                <Text style={[styles.small, { color: colors.muted, flex: 1 }]}>{t('Other address {n}', { n: i + 1 })}</Text>
+                <Pressable
+                  onPress={() => set({ addresses: fields.addresses.filter((_, j) => j !== i) })}
+                  hitSlop={10}
+                  accessibilityLabel={t('Remove')}>
+                  <Text style={[styles.small, { color: kindColors.unpaid, fontWeight: '700' }]}>{t('Remove')}</Text>
+                </Pressable>
+              </View>
+              <Field value={a.label} onChangeText={(v) => setAddr(i, { label: v })} placeholder={t('Name, e.g. Rental, Office')} />
+              <Field value={a.address} onChangeText={(v) => setAddr(i, { address: v })} placeholder={t('Address')} textContentType="fullStreetAddress" />
+            </View>
+          ))}
+          <BigButton
+            kind="second"
+            title={t('＋ Another address')}
+            onPress={() => set({ addresses: [...fields.addresses, { label: '', address: '' }] })}
+          />
           <Field
             label={t('Notes (only you see them)')}
             value={fields.notes}
@@ -163,6 +204,8 @@ const styles = StyleSheet.create({
   langTitle: { fontSize: 16, fontWeight: '700' },
   small: { fontSize: 14 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
+  addrCard: { borderRadius: radius.md, padding: 12, gap: 8 },
+  addrHead: { flexDirection: 'row', alignItems: 'center' },
   deleteBtn: { height: 48, borderRadius: radius.md, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
   deleteText: { fontSize: 16, fontWeight: '700' },
   bottom: { paddingHorizontal: 16, paddingTop: 10, gap: 8, borderTopWidth: StyleSheet.hairlineWidth },

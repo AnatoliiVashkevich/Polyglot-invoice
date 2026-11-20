@@ -301,3 +301,17 @@ def test_client_page_jobs_edit_and_delete_keeps_the_money_records(api):
     assert api.patch(f"/api/clients/{cid}", json={"name": "  "}).status_code == 400
     assert api.delete(f"/api/clients/{cid}").status_code == 204
     assert api.get(f"/api/items/{inv['id']}").status_code == 200        # the invoice stays
+
+
+def test_a_client_can_have_several_addresses_and_a_job_at_one_of_them(api):
+    cid = new_client(api, "Ann Lee")["id"]
+    other = [{"label": "Rental", "address": "5 Oak Ave, Delray Beach FL"}, {"label": "", "address": "9 Elm St"}]
+    r = api.patch(f"/api/clients/{cid}", json={"addresses": other})
+    assert r.status_code == 200 and r.json()["addresses"] == other
+    assert api.patch(f"/api/clients/{cid}", json={"addresses": [{"label": "x", "address": ""}]}).status_code == 422
+    assert api.patch(f"/api/clients/{cid}", json={"addresses": [{"address": "a"}] * 21}).status_code == 422
+    made = api.post("/api/clients", json={"name": "Bob", "addresses": [{"label": "Office", "address": "1 Main St"}]}).json()
+    assert made["addresses"] == [{"label": "Office", "address": "1 Main St"}]
+    inv = api.post("/api/items", json={"kind": "invoice", "client_id": cid, "address": other[0]["address"],
+                                       "lines": [{"text": "Fix fence", "price": 300}]}).json()
+    assert inv["address"] == "5 Oak Ave, Delray Beach FL"
