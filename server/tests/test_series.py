@@ -88,3 +88,53 @@ def test_a_single_task_can_start_repeating_and_invoices_cannot_repeat(api):
 def test_series_belong_to_their_owner(api):
     first = weekly(api)
     assert client_as(OTHER).delete(f"/api/items/{first['id']}?scope=following").status_code == 404
+
+
+def test_an_invoice_from_one_visit_marks_only_that_visit_done(api):
+    first = weekly(api)
+    rows = api.get("/api/items", params={"start": "2026-11-01", "end": "2026-12-31"}).json()
+    inv = api.post("/api/items", json={"kind": "invoice", "client_id": first["client_id"], "from_item_id": rows[1]["id"],
+                                       "lines": [{"text": "Pool cleaning", "price": 120}]}).json()
+    assert [s for _, s, _ in series_dates(api)] == ["created", "done", "created", "created"]
+    assert [r["kind"] for r in api.get(f"/api/items/{rows[1]['id']}/related").json()] == ["invoice"]
+    assert api.get(f"/api/items/{rows[2]['id']}/related").json() == []
+    assert inv["status"] == "created"
+
+
+def test_a_new_date_for_this_and_all_next_moves_the_rest_of_the_series(api):
+    weekly(api)
+    rows = api.get("/api/items", params={"start": "2026-11-01", "end": "2026-12-31"}).json()
+    api.patch(f"/api/items/{rows[1]['id']}?scope=following", json={"date": "2026-11-28"})   # Fridays -> Saturdays
+    assert [d for d, _, _ in series_dates(api)] == ["2026-11-20", "2026-11-28", "2026-12-05"]
+
+
+def test_only_this_one_moves_one_visit_and_keeps_the_rule(api):
+    weekly(api)
+    rows = api.get("/api/items", params={"start": "2026-11-01", "end": "2026-12-31"}).json()
+    r = api.patch(f"/api/items/{rows[1]['id']}", json={"date": "2026-11-28", "repeat": {"every": 3, "unit": "day"}})
+    assert r.status_code == 200 and r.json()["repeat"]["every"] == 1 and r.json()["series_id"] == rows[0]["series_id"]
+    assert [d for d, _, _ in series_dates(api)] == ["2026-11-20", "2026-11-28", "2026-12-04", "2026-12-11"]
+
+
+def test_done_visits_stay_when_the_rule_changes(api):
+    weekly(api)
+    rows = api.get("/api/items", params={"start": "2026-11-01", "end": "2026-12-31"}).json()
+    api.patch(f"/api/items/{rows[2]['id']}", json={"status": "done"})
+    api.patch(f"/api/items/{rows[1]['id']}?scope=following", json={"repeat": None})
+    assert [(d, s) for d, s, _ in series_dates(api)] == [("2026-11-20", "created"), ("2026-12-04", "done")]
+
+
+def test_a_series_until_a_date_is_not_extended(api):
+    weekly(api)
+    api.get("/api/items", params={"start": "2027-01-01", "end": "2027-12-31"})
+    assert len(series_dates(api, "2026-01-01", "2028-01-01")) == 4
+
+
+def test_a_note_cannot_get_a_client_and_tasks_need_one_when_edited(api):
+    cid = new_client(api)["id"]
+    note = api.post("/api/items", json={"kind": "note", "title": "Buy screws", "client_id": cid}).json()
+    assert note["client_id"] is None
+    inv = api.post("/api/items", json={"kind": "invoice", "client_id": cid, "lines": [{"text": "a", "price": 1}]}).json()
+    assert api.patch(f"/api/items/{inv['id']}", json={"client_id": ""}).status_code == 400
+    assert api.patch(f"/api/items/{inv['id']}", json={"repeat": {"every": 1, "unit": "week"}}).status_code == 400
+    assert api.patch(f"/api/items/{inv['id']}", json={"lines": None}).json()["total"] == 0

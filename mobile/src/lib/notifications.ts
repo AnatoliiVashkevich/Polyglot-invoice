@@ -9,9 +9,8 @@ import { t } from '@/i18n';
 import { addDays, todayIso } from '@/lib/dates';
 import { api } from '@/lib/api';
 import type { ServerItem } from '@/lib/items';
-import { lateNoticeAt, taskReminderAt, usd } from '@/lib/reminders';
+import { planNotifications } from '@/lib/notification-plan';
 
-const IOS_LIMIT = 60; // iOS keeps at most 64 scheduled notifications per app
 const IOS_PROVISIONAL = 3; // Notifications.IosAuthorizationStatus.PROVISIONAL (quiet notifications are allowed too)
 
 export function setUpNotifications() {
@@ -40,40 +39,6 @@ export async function askForNotifications(): Promise<boolean> {
   }
 }
 
-type Planned = { at: Date; title: string; body: string; url: string };
-
-function plan(items: ServerItem[], now = new Date()): Planned[] {
-  const out: Planned[] = [];
-  for (const it of items) {
-    if (it.kind === 'note') {
-      const at = taskReminderAt({ date: it.date, time: it.time, reminderMinutes: it.reminder_minutes, status: it.status }, now);
-      if (at) out.push({ at, title: `📝 ${it.time ? it.time : t('Note')}`, body: it.title, url: `/job/${it.id}` });
-    } else if (it.kind === 'task') {
-      const at = taskReminderAt({ date: it.date, time: it.time, reminderMinutes: it.reminder_minutes, status: it.status }, now);
-      if (at) {
-        const when = it.time ? ` ${t('at')} ${it.time}` : '';
-        out.push({
-          at,
-          title: it.client_name ? `${it.client_name}${when}` : `${t('Task')}${when}`,
-          body: [it.title, it.address].filter(Boolean).join(' · '),
-          url: `/job/${it.id}`,
-        });
-      }
-    } else if (it.kind === 'invoice') {
-      const at = lateNoticeAt({ status: it.status, dueDate: it.due_date }, now);
-      if (at) {
-        out.push({
-          at,
-          title: t('{name}’s invoice {amount} is 3 days late', { name: it.client_name || t('A client'), amount: usd(Number(it.total)) }),
-          body: t('Tap to send a polite reminder.'),
-          url: `/job/${it.id}?remind=1`,
-        });
-      }
-    }
-  }
-  return out.sort((a, b) => a.at.getTime() - b.at.getTime()).slice(0, IOS_LIMIT);
-}
-
 let syncing = false;
 
 /** Rebuild every scheduled notification from the server (call after changes and when the calendar opens). */
@@ -85,7 +50,7 @@ export async function syncNotifications(): Promise<void> {
     // tasks ahead, and invoices that may still become late
     const items = await api<ServerItem[]>(`/api/items?start=${addDays(today, -400)}&end=${addDays(today, 120)}`);
     await Notifications.cancelAllScheduledNotificationsAsync();
-    for (const p of plan(items)) {
+    for (const p of planNotifications(items, new Date(), t)) {
       await Notifications.scheduleNotificationAsync({
         content: { title: p.title, body: p.body, data: { url: p.url } },
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: p.at },

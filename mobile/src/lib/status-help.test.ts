@@ -23,3 +23,8 @@ test('a visit later today or on a later day is still ahead', () => {
   assert.equal(isAhead({ date: '2026-11-20' }, now), true);
   assert.equal(isAhead({ date: '2026-11-18' }, now), false);
 });
+
+test('a paid invoice says it is locked', () => {
+  assert.match(statusHelp({ kind: 'invoice', status: 'paid', date: '2026-11-19' }), /locked/);
+  assert.match(statusHelp({ kind: 'estimate', status: 'created', date: '2026-11-19' }), /Send estimate/);
+});

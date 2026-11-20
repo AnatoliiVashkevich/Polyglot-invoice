@@ -50,7 +50,8 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "test": "node --test \"src/**/*.test.ts\"",
-    "check": "npm test && tsc --noEmit && expo lint"
+    "check": "npm test && tsc --noEmit && expo lint",
+    "coverage": "node --test --experimental-test-coverage \"src/**/*.test.ts\""
   },
   "private": true
 }

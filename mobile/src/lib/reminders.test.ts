@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { lateNoticeAt, localDateTime, reminderMessage, taskReminderAt } from './reminders.ts';
+import { lateNoticeAt, localDateTime, reminderLabel, reminderMessage, taskReminderAt } from './reminders.ts';
 
 const NOW = new Date(2026, 10, 19, 12, 0); // Nov 19, 2026, noon (months count from 0)
 
@@ -37,4 +37,8 @@ test('the reminder message is short and polite', () => {
   assert.match(text, /If it's already paid, please ignore this message\./);
   assert.match(text, /Fix-It Pro$/);
   assert.match(reminderMessage({ total: 764.5 }), /^Hello, .* for \$764\.50\./);
+});
+
+test('reminder choices read plainly', () => {
+  assert.deepEqual([null, 30, 60, 1440].map((m) => reminderLabel(m as never)), ['No reminder', '30 min before', '1 hour before', '1 day before']);
 });

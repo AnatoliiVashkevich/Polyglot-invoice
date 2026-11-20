@@ -23,6 +23,9 @@ At the end of each session, update `docs/handoff.md` and commit.
   invoice and reads the PDF text)
 - app: `cd mobile` then `npm run check` (plain-Node unit tests in `src/**/*.test.ts` + type check + lint)
 New rules get a test in the same commit. Pure app logic goes in `src/lib/` files without `@/` imports so Node can test it.
+Coverage (check after big changes; keep it where it is): server `venv\Scripts\python -m pytest --cov=. --cov-report=term-missing`
+(2026-11-19: 95% overall, main.py 99%); app `npm run coverage` (src/lib: 100% of lines). The screens themselves are
+not automated: their logic lives in `src/lib/`, and the owner tests the screens on the iPhone.
 
 **Run on the iPhone:** the phone and the PC on the same Wi-Fi. Start the server (see `docs/handoff.md`), then in
 `mobile/` run `npx expo start` and scan the QR code with Expo Go. (A tunnel can't reach the server on port 8000 yet.)
