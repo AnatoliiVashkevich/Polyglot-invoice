@@ -12,7 +12,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BigButton, Chip } from '@/components/form';
+import { BigButton, Chip, INVALID } from '@/components/form';
 import { AddressPicker } from '@/components/address-picker';
 import { askScope } from '@/components/ask-scope';
 import { CustomerStep } from '@/components/invoice/customer-step';
@@ -60,6 +60,7 @@ export default function NewTaskScreen() {
   const [fromId, setFromId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [tried, setTried] = useState(false); // Next with "what" empty (§6q)
 
   useEffect(() => {
     const source = editId ?? from;
@@ -128,7 +129,10 @@ export default function NewTaskScreen() {
   };
 
   const next = () => {
-    if (step === 1 && !what.trim()) return setError(t('Please write what needs to be done.'));
+    if (step === 1 && !what.trim()) {
+      setTried(true);
+      return setError(t('Please write what needs to be done.'));
+    }
     if (step === REPEAT_STEP && repeat?.until && repeat.until < date) return setError(t('The last day can’t be before the first one.'));
     go(step + 1);
   };
@@ -195,7 +199,7 @@ export default function NewTaskScreen() {
               placeholderTextColor={colors.faint}
               autoFocus={!what}
               multiline
-              style={[styles.what, { backgroundColor: colors.card, borderColor: colors.line, color: colors.text }]}
+              style={[styles.what, { backgroundColor: colors.card, borderColor: colors.line, color: colors.text }, tried && !what.trim() && INVALID]}
             />
             {!!client && (
               <AddressPicker

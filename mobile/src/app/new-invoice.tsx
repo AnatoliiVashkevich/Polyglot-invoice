@@ -25,7 +25,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BigButton, Chip, Field, ReviewCard } from '@/components/form';
+import { BigButton, Chip, Field, INVALID, ReviewCard } from '@/components/form';
 import { BusinessSheet } from '@/components/business-sheet';
 import { AddressPicker } from '@/components/address-picker';
 import { CustomerStep } from '@/components/invoice/customer-step';
@@ -130,6 +130,7 @@ export default function NewInvoiceScreen() {
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [tried, setTried] = useState(-1); // the step where Next was tapped with a required field empty (§6q)
   const [editBusiness, setEditBusiness] = useState(false);
 
   useEffect(() => {
@@ -258,6 +259,7 @@ export default function NewInvoiceScreen() {
   // ----- moving between steps -----
   const go = (to: number) => {
     setError('');
+    setTried(-1);
     setStep(to);
   };
 
@@ -279,7 +281,10 @@ export default function NewInvoiceScreen() {
   const next = async () => {
     setError('');
     if (step === 1) {
-      if (!client?.name.trim()) return setError(t('Please enter the client’s name.'));
+      if (!client?.name.trim()) {
+        setTried(1);
+        return setError(t('Please enter the client’s name.'));
+      }
       setBusy(true);
       try {
         const saved = await saveClient(client, original);
@@ -295,8 +300,12 @@ export default function NewInvoiceScreen() {
       return;
     }
     if (step === 2) {
-      if (workLines.length === 0) return setError(t('Please add the work and its price.'));
-      if (workLines.some((l) => !l.text)) return setError(t('Please describe each line of work.'));
+      if (workLines.length === 0 || workLines.some((l) => !l.text)) {
+        setTried(2);
+        const empty = work.find((w) => !w.text.trim() && (w.price.trim() || workLines.length === 0));
+        if (empty) setTimeout(() => scrollRef.current?.scrollTo({ y: Math.max(0, bodyY.current + (lineY.current.get(empty.key) ?? 0) - 12), animated: true }), 50);
+        return setError(workLines.length === 0 ? t('Please add the work and its price.') : t('Please describe each line of work.'));
+      }
       // a line without a price: ask "Keep it at $0?" under it (§6o), then scroll to the first question
       const noPrice = work.filter((w) => w.text.trim() && !w.price.trim());
       if (noPrice.length || work.some((w) => w.question || w.noPrice)) {
@@ -466,7 +475,7 @@ export default function NewInvoiceScreen() {
       case 1:
         return client ? (
           <View style={styles.gap}>
-            <Field label={t('Name')} value={client.name} onChangeText={(v) => setC({ name: v })} autoCapitalize="words" />
+            <Field label={t('Name')} value={client.name} onChangeText={(v) => setC({ name: v })} autoCapitalize="words" invalid={tried === 1 && !client.name.trim()} />
             <Field label={t('Phone')} value={client.phone} onChangeText={(v) => setC({ phone: v })} keyboardType="phone-pad" textContentType="telephoneNumber" />
             <Field label={t('Email')} value={client.email} onChangeText={(v) => setC({ email: v })} keyboardType="email-address" autoCapitalize="none" />
             <Field label={t('Address')} value={client.address} onChangeText={(v) => setC({ address: v })} textContentType="fullStreetAddress" />
@@ -533,7 +542,12 @@ export default function NewInvoiceScreen() {
                   placeholderTextColor={colors.faint}
                   autoFocus={false}
                   multiline
-                  style={[styles.lineText, styles.lineBox, { color: colors.text, borderColor: colors.line, backgroundColor: colors.bg }]}
+                  style={[
+                    styles.lineText,
+                    styles.lineBox,
+                    { color: colors.text, borderColor: colors.line, backgroundColor: colors.bg },
+                    tried === 2 && !w.text.trim() && (!!w.price.trim() || workLines.length === 0) && INVALID,
+                  ]}
                 />
                 {!!w.question && (
                   <View style={[styles.askBox, { borderColor: '#F59E0B', backgroundColor: colors.bg }]}>
@@ -708,7 +722,7 @@ export default function NewInvoiceScreen() {
                     placeholderTextColor={colors.faint}
                     keyboardType="decimal-pad"
                     autoFocus={!discount.value}
-                    style={[styles.price, { color: colors.text, borderColor: colors.line }]}
+                    style={[styles.price, { color: colors.text, borderColor: colors.line }, !discountOk && INVALID]}
                   />
                 </View>
                 <TextInput

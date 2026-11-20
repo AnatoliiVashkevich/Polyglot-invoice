@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BigButton, Chip } from '@/components/form';
+import { BigButton, Chip, INVALID } from '@/components/form';
 import { t } from '@/i18n';
 import { isoDate, parseIso, todayIso } from '@/lib/dates';
 import { markPaid, PAYMENT_METHODS, type ServerItem } from '@/lib/items';
@@ -35,9 +35,13 @@ function SheetBody({ item, onClose, onPaid }: Props & { item: NonNullable<Props[
   const [date, setDate] = useState(todayIso());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [tried, setTried] = useState(false); // Mark Paid without a method (§6q)
 
   const save = async () => {
-    if (!method) return setError(t('How did the client pay?'));
+    if (!method) {
+      setTried(true);
+      return setError(t('How did the client pay?'));
+    }
     setBusy(true);
     setError('');
     try {
@@ -63,8 +67,8 @@ function SheetBody({ item, onClose, onPaid }: Props & { item: NonNullable<Props[
           <Text style={[styles.sub, { color: colors.muted }]}>{[item.client_name, item.number].filter(Boolean).join(' · ')}</Text>
         )}
 
-        <Text style={[styles.label, { color: colors.muted }]}>{t('How did they pay?')}</Text>
-        <View style={styles.chips}>
+        <Text style={[styles.label, { color: tried && !method ? '#E5484D' : colors.muted }]}>{t('How did they pay?')}</Text>
+        <View style={[styles.chips, tried && !method && { ...INVALID, borderRadius: radius.md, padding: 6 }]}>
           {PAYMENT_METHODS.map((m) => (
             <Chip key={m} label={t(m)} active={method === m} onPress={() => setMethod(m)} />
           ))}

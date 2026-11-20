@@ -24,13 +24,17 @@ export function AddressPicker({ main, others, value, onChange, onAdd }: Props) {
   const [address, setAddress] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [tried, setTried] = useState(false); // Add with the address empty (§6q)
 
   const options = addressOptions(main, others);
   const chosen = (value || main).trim();
   const known = options.some((o) => o.address.toLowerCase() === chosen.toLowerCase());
 
   const add = async () => {
-    if (!address.trim()) return setError(t('Please enter the address.'));
+    if (!address.trim()) {
+      setTried(true);
+      return setError(t('Please enter the address.'));
+    }
     setBusy(true);
     setError('');
     try {
@@ -65,7 +69,7 @@ export function AddressPicker({ main, others, value, onChange, onAdd }: Props) {
       {adding && (
         <View style={styles.add}>
           <Field label={t('Name (optional)')} value={label} onChangeText={setLabel} placeholder={t('e.g. Rental, Office, Mom’s house')} />
-          <Field label={t('Address')} value={address} onChangeText={setAddress} textContentType="fullStreetAddress" autoFocus />
+          <Field label={t('Address')} value={address} onChangeText={setAddress} textContentType="fullStreetAddress" autoFocus invalid={tried && !address.trim()} />
           {!!error && <Text style={styles.error}>{error}</Text>}
           <BigButton kind="second" title={t('Add this address')} onPress={add} busy={busy} />
           <BigButton kind="quiet" title={t('Cancel')} onPress={() => setAdding(false)} disabled={busy} />

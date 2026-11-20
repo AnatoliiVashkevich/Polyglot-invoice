@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { INVALID } from '@/components/form';
 import { t } from '@/i18n';
 import { useAuth } from '@/lib/auth';
 import { radius, useColors } from '@/theme';
@@ -25,11 +26,13 @@ export default function SignInScreen() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [tried, setTried] = useState(false); // Sign in with a field empty (§6q)
 
   const submit = async () => {
     if (busy) return;
     setError('');
     if (!email.trim() || !password) {
+      setTried(true);
       setError(t('Please enter your email and password.'));
       return;
     }
@@ -58,7 +61,7 @@ export default function SignInScreen() {
 
         <View style={styles.form}>
           <TextInput
-            style={input}
+            style={[input, tried && !email.trim() && INVALID]}
             value={email}
             onChangeText={setEmail}
             placeholder={t('Email')}
@@ -70,7 +73,7 @@ export default function SignInScreen() {
             returnKeyType="next"
           />
           <TextInput
-            style={input}
+            style={[input, tried && !password && INVALID]}
             value={password}
             onChangeText={setPassword}
             placeholder={mode === 'up' ? t('Password (at least 8 characters)') : t('Password')}

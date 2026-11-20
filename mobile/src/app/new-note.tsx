@@ -9,7 +9,7 @@ import { ActivityIndicator, Alert, KeyboardAvoidingView, Pressable, ScrollView, 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { askScope } from '@/components/ask-scope';
-import { BigButton, Chip } from '@/components/form';
+import { BigButton, Chip, INVALID } from '@/components/form';
 import { RepeatPicker } from '@/components/repeat-picker';
 import { t } from '@/i18n';
 import { api } from '@/lib/api';
@@ -44,6 +44,7 @@ export default function NewNoteScreen() {
   const [reminder, setReminder] = useState<ReminderMinutes | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [tried, setTried] = useState(false); // Save with the text empty (§6q)
 
   useEffect(() => {
     if (!editId) return;
@@ -71,7 +72,10 @@ export default function NewNoteScreen() {
 
   const save = async () => {
     if (busy) return;
-    if (!text.trim()) return setError(t('Please write the note.'));
+    if (!text.trim()) {
+      setTried(true);
+      return setError(t('Please write the note.'));
+    }
     if (repeat?.until && repeat.until < date) return setError(t('The last day can’t be before the first one.'));
     const scope = editing?.series_id ? await askScope(t('Change the repeating note')) : 'one';
     if (!scope) return;
@@ -121,7 +125,7 @@ export default function NewNoteScreen() {
             placeholderTextColor={colors.faint}
             autoFocus={!editId}
             multiline
-            style={[styles.text, { backgroundColor: colors.card, borderColor: colors.line, color: colors.text }]}
+            style={[styles.text, { backgroundColor: colors.card, borderColor: colors.line, color: colors.text }, tried && !text.trim() && INVALID]}
           />
 
           <View style={[styles.card, { backgroundColor: colors.card }]}>

@@ -32,10 +32,14 @@ function Body({ settings, onClose, onSaved }: { settings: Settings; onClose: () 
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [tried, setTried] = useState(false); // Save with the name empty (§6q)
   const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   const save = async () => {
-    if (!form.name.trim()) return setError(t('Please enter your business name.'));
+    if (!form.name.trim()) {
+      setTried(true);
+      return setError(t('Please enter your business name.'));
+    }
     setBusy(true);
     setError('');
     try {
@@ -56,7 +60,7 @@ function Body({ settings, onClose, onSaved }: { settings: Settings; onClose: () 
         <Text style={[styles.title, { color: colors.text }]}>{t('Your business')}</Text>
         <Text style={[styles.sub, { color: colors.muted }]}>{t('Printed at the top of every invoice.')}</Text>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 12, paddingVertical: 12 }}>
-          <Field label={t('Business name')} value={form.name} onChangeText={set('name')} autoCapitalize="words" />
+          <Field label={t('Business name')} value={form.name} onChangeText={set('name')} autoCapitalize="words" invalid={tried && !form.name.trim()} />
           <Field label={t('Phone')} value={form.phone} onChangeText={set('phone')} keyboardType="phone-pad" />
           <Field label={t('Email')} value={form.email} onChangeText={set('email')} keyboardType="email-address" autoCapitalize="none" />
           <Field label={t('Address')} value={form.address} onChangeText={set('address')} />

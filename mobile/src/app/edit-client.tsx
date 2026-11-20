@@ -29,6 +29,7 @@ export default function EditClientScreen() {
   const [docLang, setDocLang] = useState<Lang>('en');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [tried, setTried] = useState(false); // Save with the name empty (§6q)
 
   useEffect(() => {
     fetchSettings()
@@ -71,7 +72,10 @@ export default function EditClientScreen() {
 
   const save = async () => {
     if (!fields || busy) return;
-    if (!fields.name.trim()) return setError(t('Please enter the client’s name.'));
+    if (!fields.name.trim()) {
+      setTried(true);
+      return setError(t('Please enter the client’s name.'));
+    }
     setBusy(true);
     setError('');
     try {
@@ -152,7 +156,7 @@ export default function EditClientScreen() {
         )
       ) : (
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
-          <Field label={t('Name')} value={fields.name} onChangeText={(v) => set({ name: v })} autoCapitalize="words" />
+          <Field label={t('Name')} value={fields.name} onChangeText={(v) => set({ name: v })} autoCapitalize="words" invalid={tried && !fields.name.trim()} />
           <Field label={t('Phone')} value={fields.phone} onChangeText={(v) => set({ phone: v })} keyboardType="phone-pad" textContentType="telephoneNumber" />
           <Field label={t('Email')} value={fields.email} onChangeText={(v) => set({ email: v })} keyboardType="email-address" autoCapitalize="none" />
           <Field label={t('Billing address')} value={fields.address} onChangeText={(v) => set({ address: v })} textContentType="fullStreetAddress" />

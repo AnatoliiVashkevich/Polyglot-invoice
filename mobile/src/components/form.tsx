@@ -4,15 +4,18 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View, type T
 
 import { radius, useColors } from '@/theme';
 
-export function Field({ label, style, ...input }: TextInputProps & { label?: string }) {
+/** A required field left empty after Next / Save (§6q): a red frame, until it is filled in. */
+export const INVALID = { borderColor: '#E5484D', borderWidth: 2 } as const;
+
+export function Field({ label, style, invalid, ...input }: TextInputProps & { label?: string; invalid?: boolean }) {
   const colors = useColors();
   return (
     <View style={styles.field}>
-      {!!label && <Text style={[styles.label, { color: colors.muted }]}>{label}</Text>}
+      {!!label && <Text style={[styles.label, { color: invalid ? '#E5484D' : colors.muted }]}>{label}</Text>}
       <TextInput
         placeholderTextColor={colors.faint}
         {...input}
-        style={[styles.input, { backgroundColor: colors.card, borderColor: colors.line, color: colors.text }, style]}
+        style={[styles.input, { backgroundColor: colors.card, borderColor: colors.line, color: colors.text }, style, invalid && INVALID]}
       />
     </View>
   );

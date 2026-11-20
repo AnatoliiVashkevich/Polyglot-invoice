@@ -382,6 +382,14 @@ the website address (polyglotinvoice.com) and a USPTO trademark search.
   hand stay as written in the user's language; their translation follows the standard.
 - Estimates have the same ✨ box and the same check on Next (one shared screen).
 
+## 6q. Required fields (2026-11-19)
+
+- When Next / Save / Sign in / Mark Paid is tapped and a required field is empty, **that field gets a red frame**
+  (and its label turns red), the screen scrolls to it when needed, and the message says what's missing. The red goes
+  away as soon as it is filled in. Required: client name, each line's description, task "what", note text, business
+  name, a new address, the payment method, email + password; an invalid discount stays red while it's wrong.
+  New screens follow the same rule (`INVALID` / `Field invalid` in components/form.tsx).
+
 ## 13. Database (decided 2026-11-19)
 
 - The new app **reuses the crm-solo Supabase project and its keys**. Its old tables hold only test data and are
