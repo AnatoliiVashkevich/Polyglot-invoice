@@ -12,7 +12,7 @@ import { t } from '@/i18n';
 import { isOverdue, itemColorKey, kindColors, radius, useColors } from '@/theme';
 import type { Item } from '@/types';
 
-const KIND_LABEL = { task: 'Task', estimate: 'Estimate', invoice: 'Invoice' } as const;
+const KIND_LABEL = { task: 'Task', estimate: 'Estimate', invoice: 'Invoice', note: 'Note' } as const;
 const STATUS_LABEL = { created: 'Created', done: 'Done', sent: 'Sent', requested: 'Requested', paid: 'Paid' } as const;
 
 export type RowAction = { label: string; color: string; onPress: () => void };
@@ -22,10 +22,13 @@ export function DayRow({ item, onPress, actions = [] }: { item: Item; onPress: (
   const color = kindColors[itemColorKey(item)];
   const done = item.status === 'paid' || item.status === 'done';
   const who = item.clientName || t('No client');
+  const loop = item.repeating ? ' 🔁' : '';
   const first =
-    item.kind === 'task'
-      ? [item.time && formatTime(item.time), who, t(KIND_LABEL.task)].filter(Boolean).join(' · ')
-      : `${who} · ${t(KIND_LABEL[item.kind])}${item.number ? ` ${item.number}` : ''}`;
+    item.kind === 'note'
+      ? [item.time && formatTime(item.time), `📝 ${t(KIND_LABEL.note)}`].filter(Boolean).join(' · ') + loop
+      : item.kind === 'task'
+        ? [item.time && formatTime(item.time), who, t(KIND_LABEL.task)].filter(Boolean).join(' · ') + loop
+        : `${who} · ${t(KIND_LABEL[item.kind])}${item.number ? ` ${item.number}` : ''}`;
   const title = item.title.replace(/\s+/g, ' ').trim(); // a long scope of work → one short line
   const second = item.kind === 'task' ? [title, item.address && `📍 ${item.address}`].filter(Boolean).join(' · ') : title;
   // never cut off: the amount and the status (the description gives way instead)

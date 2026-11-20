@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { t } from '@/i18n';
 import { radius, useColors } from '@/theme';
 
-export type CreateKind = 'invoice' | 'estimate' | 'task' | 'expense' | 'client';
+export type CreateKind = 'invoice' | 'estimate' | 'task' | 'note' | 'expense' | 'client';
 
 const SMALL: Record<CreateKind, [string, string]> = {
   invoice: ['💵', 'Invoice'],
@@ -17,6 +17,7 @@ const SMALL: Record<CreateKind, [string, string]> = {
   task: ['☑️', 'Task'],
   expense: ['🧾', 'Expense'],
   client: ['👤', 'Client'],
+  note: ['📝', 'Note'],
 };
 
 const TAB_BAR = 49; // the iPhone tab bar height above the home-indicator area
@@ -38,6 +39,7 @@ export function CreateButton({
     setOpen(false);
     if (onCreate) onCreate(kind);
     else if (kind === 'client') router.push('/edit-client');
+    else if (kind === 'note') router.push('/new-note');
     else if (kind === 'invoice') router.push({ pathname: '/new-invoice', params: clientId ? { client: clientId } : {} });
     else if (kind === 'estimate') router.push({ pathname: '/new-invoice', params: { kind: 'estimate', ...(clientId ? { client: clientId } : {}) } });
     else if (kind === 'task') router.push({ pathname: '/new-task', params: clientId ? { client: clientId } : {} });
@@ -73,7 +75,7 @@ export function CreateButton({
           <View style={styles.others}>
             {(main === 'client'
               ? (['invoice', 'estimate', 'task', 'expense'] as const)
-              : (['estimate', 'task', 'expense'] as const)
+              : (['estimate', 'task', 'note', 'expense'] as const)
             ).map((kind) => [kind, ...SMALL[kind]] as const).map(([kind, icon, label]) => (
               <Pressable
                 key={kind}

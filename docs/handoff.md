@@ -22,6 +22,18 @@ Last updated: 2026-11-19. Update this file at the end of every session.
   (`components/address-picker.tsx`). **The owner must run in Supabase SQL:**
   `alter table clients add column if not exists addresses jsonb not null default '[]'::jsonb;`
   (saving a client fails until then). Then the owner tests; then repeating tasks and notes (§6g).
+- **Repeating tasks and notes built (2026-11-19, §6g), waiting for the owner's test.** Server: `repeat.py` (dates),
+  kind "note", `series_id` + `repeat` on items, one row per visit, `?scope=one|following` on PATCH / DELETE, no end
+  date extends in `GET /api/items`; a task needs a client. App: `new-note.tsx`, `components/repeat-picker.tsx`,
+  `components/ask-scope.ts`, Repeat step in `new-task.tsx` (no Skip), notes in the calendar (amber, 📝, 🔁 for
+  repeating), ✓ Done on the job card. **The owner must run in Supabase SQL:**
+  ```
+  alter table items drop constraint if exists items_kind_check;
+  alter table items add constraint items_kind_check check (kind in ('task','estimate','invoice','note'));
+  alter table items add column if not exists series_id uuid;
+  alter table items add column if not exists repeat jsonb;
+  create index if not exists items_series_idx on items (series_id);
+  ```
 - **Next (older note):** first the open ideas in product-decisions.md "Still to decide" (repeating tasks, easier price entry,
   history, notes, deposits), then Step 7 (voice and languages). Ask the owner which first.
 - **Steps 0–4 are done and tested on the owner's iPhone (2026-11-19).** The owner loves the app so far.

@@ -1,4 +1,4 @@
-// Tasks · Estimates · Invoices · Unpaid. Same colors as the calendar bars. Tap again to show everything.
+// Tasks · Estimates · Invoices · Notes · Unpaid. Same colors as the calendar bars. Tap again to show everything.
 import * as Haptics from 'expo-haptics';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -10,6 +10,7 @@ const FILTERS: { key: Exclude<Filter, 'all'>; label: string }[] = [
   { key: 'task', label: 'Tasks' },
   { key: 'estimate', label: 'Estimates' },
   { key: 'invoice', label: 'Invoices' },
+  { key: 'note', label: 'Notes' },
   { key: 'unpaid', label: 'Unpaid' },
 ];
 

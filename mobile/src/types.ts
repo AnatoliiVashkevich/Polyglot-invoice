@@ -1,6 +1,6 @@
 // One job, three stages: Task → Estimate → Invoice (see docs/product-decisions.md).
 
-export type Kind = 'task' | 'estimate' | 'invoice';
+export type Kind = 'task' | 'estimate' | 'invoice' | 'note';
 
 /**
  * Task: created → done.
@@ -21,6 +21,7 @@ export interface Item {
   number?: string; // INV-0012 / EST-0004
   amount?: number; // total in dollars (estimates, invoices)
   dueDate?: string; // invoices: YYYY-MM-DD (past it and still Requested = overdue)
+  repeating?: boolean; // a visit of a repeating task / note (🔁)
 }
 
-export type Filter = 'all' | 'task' | 'estimate' | 'invoice' | 'unpaid';
+export type Filter = 'all' | 'task' | 'estimate' | 'invoice' | 'note' | 'unpaid';

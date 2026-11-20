@@ -1,6 +1,7 @@
 // Jobs (tasks, estimates, invoices) from the server, and the actions on them (send, mark paid, undo payment).
 import { api } from '@/lib/api';
 import type { Line, TaxAppliesTo } from '@/lib/invoice-math';
+import type { RepeatRule } from '@/lib/repeat-rule';
 import { downloadPdf, sharePdf } from '@/lib/pdf';
 import type { Item, Kind, Status } from '@/types';
 
@@ -26,7 +27,12 @@ export type ServerItem = {
   paid_date: string | null;
   payment_method: string;
   from_item_id: string | null;
+  series_id?: string | null; // repeating tasks / notes: every visit of one series
+  repeat?: (RepeatRule & { start?: string }) | null;
 };
+
+/** Repeating tasks and notes: change or delete only this visit, or this and all next ones. */
+export type Scope = 'one' | 'following';
 
 export const PAYMENT_METHODS = ['Zelle', 'Cash', 'Check', 'Venmo', 'Card', 'Other'] as const;
 
@@ -41,8 +47,9 @@ export const toItem = (r: ServerItem): Item => ({
   address: r.address || undefined,
   title: r.title,
   number: r.number || undefined,
-  amount: r.kind === 'task' ? undefined : Number(r.total),
+  amount: r.kind === 'task' || r.kind === 'note' ? undefined : Number(r.total),
   dueDate: r.due_date || undefined,
+  repeating: !!r.series_id,
 });
 
 /** Every item dated between start and end (YYYY-MM-DD, both included). */
@@ -59,13 +66,14 @@ export async function fetchClientItems(clientId: string): Promise<Item[]> {
 
 export const getItem = (id: string) => api<ServerItem>(`/api/items/${id}`);
 
-export const patchItem = (id: string, body: Record<string, unknown>) =>
-  api<ServerItem>(`/api/items/${id}`, { method: 'PATCH', body });
+export const patchItem = (id: string, body: Record<string, unknown>, scope: Scope = 'one') =>
+  api<ServerItem>(`/api/items/${id}${scope === 'following' ? '?scope=following' : ''}`, { method: 'PATCH', body });
 
 export const markPaid = (id: string, method: string, date: string) =>
   patchItem(id, { status: 'paid', payment_method: method, paid_date: date });
 
-export const deleteItem = (id: string) => api<void>(`/api/items/${id}`, { method: 'DELETE' });
+export const deleteItem = (id: string, scope: Scope = 'one') =>
+  api<void>(`/api/items/${id}${scope === 'following' ? '?scope=following' : ''}`, { method: 'DELETE' });
 
 /** Undo payment: back to Requested (it was sent before it was paid). The server clears the date and method. */
 export const undoPayment = (id: string) => patchItem(id, { status: 'requested' });

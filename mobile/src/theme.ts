@@ -41,6 +41,7 @@ export const kindColors = {
   task: '#3B82F6', // blue
   estimate: '#8B5CF6', // purple
   invoice: '#10B981', // green
+  note: '#F59E0B', // amber: notes (no client)
   unpaid: '#EF4444', // red: an invoice waiting for money (Requested)
 } as const;
 

@@ -1,5 +1,6 @@
 // NEW TASK (a scheduled job), one question per screen (product-decisions.md §6b):
-//   1 Customer (or Skip) · 2 What to do · 3 Date and time · 4 Reminder (1 hour before by default) → Create
+//   1 Client (always: §6g, no Skip) · 2 What to do · 3 Date and time · 4 Repeat? · 5 Reminder (1 hour before) → Create
+// Editing a repeating task asks "Only this one / This and all next ones".
 // No prices and no duration: prices are added when the job becomes an invoice.
 // /new-task?from=<estimate id> ("Schedule the job") starts filled in, at Date and time.
 // /new-task?id=<task id> edits a task (the same screens, filled in).
@@ -13,17 +14,23 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BigButton, Chip } from '@/components/form';
 import { AddressPicker } from '@/components/address-picker';
+import { askScope } from '@/components/ask-scope';
 import { CustomerStep } from '@/components/invoice/customer-step';
+import { RepeatPicker } from '@/components/repeat-picker';
 import { t } from '@/i18n';
 import { api } from '@/lib/api';
 import { addClientAddress, fetchClients, saveClient, type Client, type ClientDraft } from '@/lib/clients';
 import { isoDate, parseIso, todayIso } from '@/lib/dates';
 import { getItem, patchItem, type ServerItem } from '@/lib/items';
+import type { RepeatRule } from '@/lib/repeat-rule';
 import { askForNotifications, syncNotifications } from '@/lib/notifications';
 import { DEFAULT_REMINDER, REMINDER_CHOICES, reminderLabel, type ReminderMinutes } from '@/lib/reminders';
 import { radius, useColors } from '@/theme';
 
-const STEPS = 4;
+const STEPS = 5;
+const REPEAT_STEP = 3;
+const sameRule = (a: RepeatRule | null | undefined, b: RepeatRule | null | undefined) =>
+  (a?.every ?? 0) === (b?.every ?? 0) && (a?.unit ?? '') === (b?.unit ?? '') && (a?.until ?? null) === (b?.until ?? null);
 
 function timeToDate(date: string, time: string) {
   const d = parseIso(date);
@@ -49,6 +56,7 @@ export default function NewTaskScreen() {
   const [date, setDate] = useState(todayIso());
   const [time, setTime] = useState('09:00');
   const [reminder, setReminder] = useState<ReminderMinutes | null>(DEFAULT_REMINDER);
+  const [repeat, setRepeat] = useState<RepeatRule | null>(null);
   const [fromId, setFromId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -75,6 +83,7 @@ export default function NewTaskScreen() {
           setDate(it.date);
           setTime(it.time || '09:00');
           setReminder((it.reminder_minutes as ReminderMinutes | null) ?? null);
+          if (it.repeat) setRepeat({ every: it.repeat.every, unit: it.repeat.unit, until: it.repeat.until ?? null });
           setStep(1);
         } else {
           setFromId(it.id); // "Schedule the job" from an estimate
@@ -120,25 +129,36 @@ export default function NewTaskScreen() {
 
   const next = () => {
     if (step === 1 && !what.trim()) return setError(t('Please write what needs to be done.'));
+    if (step === REPEAT_STEP && repeat?.until && repeat.until < date) return setError(t('The last day can’t be before the first one.'));
     go(step + 1);
   };
 
   const finish = async () => {
-    if (busy) return;
+    if (busy || !client) return;
+    // a repeating task: this visit only, or this and all next ones
+    const scope = editing?.series_id ? await askScope(t('Change the repeating task')) : 'one';
+    if (!scope) return;
     setBusy(true);
     setError('');
     try {
       if (reminder) await askForNotifications(); // the iPhone asks once; the task is saved either way
-      const body = {
-        client_id: client?.id ?? null,
+      const body: Record<string, unknown> = {
+        client_id: client.id,
         title: what.trim(),
-        address: jobAddress || client?.address || '',
+        address: jobAddress || client.address || '',
         date,
         time,
         reminder_minutes: reminder,
       };
+      if (editing) {
+        const ruleChanged = !sameRule(repeat, editing.repeat);
+        if (scope === 'following') {
+          if (date === editing.date) delete body.date; // a new date restarts the series from this visit
+          if (ruleChanged) body.repeat = repeat;
+        } else if (!editing.series_id && repeat) body.repeat = repeat; // a single task starts repeating
+      } else if (repeat) body.repeat = repeat;
       const saved = editing
-        ? await patchItem(editing.id, body)
+        ? await patchItem(editing.id, body, scope)
         : await api<ServerItem>('/api/items', { method: 'POST', body: { kind: 'task', ...body, ...(fromId ? { from_item_id: fromId } : {}) } });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       syncNotifications();
@@ -151,11 +171,12 @@ export default function NewTaskScreen() {
     }
   };
 
-  const title = [t('Choose the client'), t('What needs to be done?'), t('When?'), t('Remind you?')][step];
+  const title = [t('Choose the client'), t('What needs to be done?'), t('When?'), t('Repeat?'), t('Remind you?')][step];
   const subtitle = [
-    t('Or tap Skip at the bottom if it is not for a client.'),
+    t('Not for a client? Make a note instead (＋ → Note).'),
     client ? client.name : '',
     '',
+    t('For regular work, like pool cleaning every week. Each visit gets its own reminder and is marked done on its own.'),
     t('A notification on your phone before the job. The iPhone asks once to allow notifications.'),
   ][step];
 
@@ -213,6 +234,8 @@ export default function NewTaskScreen() {
             </View>
           </View>
         );
+      case REPEAT_STEP:
+        return <RepeatPicker value={repeat} onChange={setRepeat} startDate={date} />;
       default:
         return (
           <View style={styles.chips}>
@@ -225,9 +248,7 @@ export default function NewTaskScreen() {
   };
 
   const bottom =
-    step === 0 ? (
-      <BigButton kind="quiet" title={t('Skip')} onPress={() => (setClient(null), go(1))} busy={busy} />
-    ) : step === STEPS - 1 ? (
+    step === 0 ? null : step === STEPS - 1 ? (
       <BigButton title={editing ? t('Save changes') : t('Create task')} onPress={finish} busy={busy} />
     ) : (
       <BigButton title={t('Next')} onPress={next} />

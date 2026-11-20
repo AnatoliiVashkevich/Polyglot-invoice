@@ -1,6 +1,7 @@
 // THE JOB CARD: one screen for a task, an estimate or an invoice, with ONE big "next step" button
 // (product-decisions.md §4; lib/next-step.ts). Other actions are smaller, underneath.
-//   Estimate / invoice: the PDF preview.   Task: customer, what, when, reminder.
+//   Estimate / invoice: the PDF preview.   Task / note: what, when, repeat, reminder.
+//   Repeating task / note (§6g): big ✓ Done; Edit and Delete ask "Only this one / This and all next ones".
 //   Invoice waiting for money: "Send a reminder" opens Messages with a ready, polite text (?remind=1 from the
 //   late-invoice notification opens it right away).
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -9,6 +10,7 @@ import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Share, StyleS
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 
+import { askScope } from '@/components/ask-scope';
 import { ContactBar } from '@/components/contact-bar';
 import { BigButton } from '@/components/form';
 import { MarkPaidSheet } from '@/components/mark-paid-sheet';
@@ -21,10 +23,11 @@ import { NEXT_STEP_LABEL, nextSteps, type NextStep } from '@/lib/next-step';
 import { syncNotifications } from '@/lib/notifications';
 import { cleanOldPdfs, downloadPdf } from '@/lib/pdf';
 import { reminderLabel, reminderMessage, type ReminderMinutes } from '@/lib/reminders';
+import { repeatLabel } from '@/lib/repeat-rule';
 import { isOverdue } from '@/lib/status';
 import { kindColors, radius, useColors } from '@/theme';
 
-const KIND_LABEL = { task: 'Task', estimate: 'Estimate', invoice: 'Invoice' } as const;
+const KIND_LABEL = { task: 'Task', estimate: 'Estimate', invoice: 'Invoice', note: 'Note' } as const;
 
 export default function JobScreen() {
   const colors = useColors();
@@ -46,7 +49,7 @@ export default function JobScreen() {
       setSettings(s);
       setClient(clients.find((c) => c.id === it.client_id) ?? null);
       setError('');
-      if (it.kind !== 'task') {
+      if (it.kind === 'estimate' || it.kind === 'invoice') {
         cleanOldPdfs();
         setPdfUri((await downloadPdf(it, s.doc_language)).uri);
       }
@@ -103,6 +106,7 @@ export default function JobScreen() {
     if (step === 'send-estimate' || step === 'send-invoice') return send();
     if (step === 'mark-paid') return setPaying(true);
     if (step === 'schedule') return router.push({ pathname: '/new-task', params: { from: item.id } });
+    if (step === 'done') return run(() => patchItem(item.id, { status: 'done' }));
     // make-invoice (from an estimate) or job-done (from a task): the questionnaire, filled in
     router.push({ pathname: '/new-invoice', params: { from: item.id } });
   };
@@ -110,11 +114,25 @@ export default function JobScreen() {
   const edit = () => {
     if (!item) return;
     if (item.kind === 'task') router.push({ pathname: '/new-task', params: { id: item.id } });
+    else if (item.kind === 'note') router.push({ pathname: '/new-note', params: { id: item.id } });
     else router.push({ pathname: '/new-invoice', params: { id: item.id } });
   };
 
-  const remove = () =>
-    item &&
+  const remove = async () => {
+    if (!item) return;
+    if (item.series_id) {
+      // a repeating task / note: only this visit, or this and all next ones
+      const scope = await askScope(t('Delete the repeating {kind}?', { kind: t(KIND_LABEL[item.kind]).toLowerCase() }), true);
+      if (!scope) return;
+      try {
+        await deleteItem(item.id, scope);
+        syncNotifications();
+        close();
+      } catch (e) {
+        Alert.alert(t(e instanceof Error ? e.message : 'Something went wrong.'));
+      }
+      return;
+    }
     Alert.alert(t('Delete this {kind}?', { kind: t(KIND_LABEL[item.kind]).toLowerCase() }), t('This cannot be undone.'), [
       { text: t('Cancel'), style: 'cancel' },
       {
@@ -131,6 +149,7 @@ export default function JobScreen() {
         },
       },
     ]);
+  };
 
   const undo = () =>
     Alert.alert(t('Undo payment?'), t('The invoice goes back to waiting for money and can be edited again.'), [
@@ -142,10 +161,12 @@ export default function JobScreen() {
   const overdue = !!item && isOverdue({ kind: item.kind, status: item.status, dueDate: item.due_date ?? undefined });
   const statusText = !item
     ? ''
-    : item.kind === 'task'
+    : item.kind === 'task' || item.kind === 'note'
       ? item.status === 'done'
         ? t('✓ Done')
-        : t('Scheduled')
+        : item.kind === 'note'
+          ? t('Not done yet')
+          : t('Scheduled')
       : item.kind === 'estimate'
         ? item.status === 'sent'
           ? t('Sent · waiting for the client’s answer')
@@ -172,7 +193,10 @@ export default function JobScreen() {
       small.push({ label: t('Send again'), onPress: send });
     }
     if (item.kind === 'estimate' && item.status === 'sent') small.push({ label: t('Send again'), onPress: send });
-    if (item.kind === 'task' && item.status !== 'done') small.push({ label: t('Mark done'), onPress: () => run(() => patchItem(item.id, { status: 'done' })) });
+    if (item.kind === 'task' && item.status !== 'done' && !item.series_id)
+      small.push({ label: t('Mark done'), onPress: () => run(() => patchItem(item.id, { status: 'done' })) });
+    if ((item.kind === 'task' || item.kind === 'note') && item.status === 'done')
+      small.push({ label: t('Not done'), onPress: () => run(() => patchItem(item.id, { status: 'created' })) });
     if (item.status !== 'paid') small.push({ label: `✏️ ${t('Edit')}`, onPress: edit });
     if (item.status === 'paid') small.push({ label: t('Undo payment'), onPress: undo });
     if (item.status !== 'paid') small.push({ label: t('Delete'), onPress: remove });
@@ -198,9 +222,9 @@ export default function JobScreen() {
             disabled={!client}
             onPress={() => client && router.push({ pathname: '/client/[id]', params: { id: client.id } })}
             accessibilityRole={client ? 'link' : undefined}>
-            <Text style={[styles.client, { color: colors.text }]} numberOfLines={1}>
-              {item.client_name || t('No client')}
-              {item.kind !== 'task' || Number(item.total) > 0 ? ` · ${money(Number(item.total))}` : ''}
+            <Text style={[styles.client, { color: colors.text }]} numberOfLines={item.kind === 'note' ? 3 : 1}>
+              {item.kind === 'note' ? `📝 ${item.title}` : item.client_name || t('No client')}
+              {item.kind === 'estimate' || item.kind === 'invoice' || Number(item.total) > 0 ? ` · ${money(Number(item.total))}` : ''}
               {client ? <Text style={{ color: colors.faint }}> ›</Text> : null}
             </Text>
           </Pressable>
@@ -217,12 +241,14 @@ export default function JobScreen() {
         </View>
       )}
 
-      {item?.kind === 'task' ? (
+      {item?.kind === 'task' || item?.kind === 'note' ? (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}>
-          <View style={[styles.card, { backgroundColor: colors.card }]}>
-            <Text style={[styles.cardLabel, { color: colors.muted }]}>{t('WHAT')}</Text>
-            <Text style={[styles.body, { color: colors.text }]}>{item.title || '—'}</Text>
-          </View>
+          {item.kind === 'task' && (
+            <View style={[styles.card, { backgroundColor: colors.card }]}>
+              <Text style={[styles.cardLabel, { color: colors.muted }]}>{t('WHAT')}</Text>
+              <Text style={[styles.body, { color: colors.text }]}>{item.title || '—'}</Text>
+            </View>
+          )}
           {item.lines.length > 0 && (
             <View style={[styles.card, { backgroundColor: colors.card }]}>
               <Text style={[styles.cardLabel, { color: colors.muted }]}>{t('PRICE (FROM THE ESTIMATE)')}</Text>
@@ -253,6 +279,11 @@ export default function JobScreen() {
               {formatDay(item.date, 'en-US')}
               {item.time ? ` · ${formatTime(item.time)}` : ''}
             </Text>
+            {!!item.repeat && (
+              <Text style={[styles.small, { color: colors.muted }]}>
+                🔁 {t(repeatLabel({ every: item.repeat.every, unit: item.repeat.unit, until: item.repeat.until ?? null }, (d) => formatDay(d, 'en-US')))}
+              </Text>
+            )}
             <Text style={[styles.small, { color: colors.muted }]}>
               🔔 {t(reminderLabel((item.reminder_minutes as ReminderMinutes | null) ?? null))}
             </Text>

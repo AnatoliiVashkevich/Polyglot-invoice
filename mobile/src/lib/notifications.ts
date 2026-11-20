@@ -45,7 +45,10 @@ type Planned = { at: Date; title: string; body: string; url: string };
 function plan(items: ServerItem[], now = new Date()): Planned[] {
   const out: Planned[] = [];
   for (const it of items) {
-    if (it.kind === 'task') {
+    if (it.kind === 'note') {
+      const at = taskReminderAt({ date: it.date, time: it.time, reminderMinutes: it.reminder_minutes, status: it.status }, now);
+      if (at) out.push({ at, title: `📝 ${it.time ? it.time : t('Note')}`, body: it.title, url: `/job/${it.id}` });
+    } else if (it.kind === 'task') {
       const at = taskReminderAt({ date: it.date, time: it.time, reminderMinutes: it.reminder_minutes, status: it.status }, now);
       if (at) {
         const when = it.time ? ` ${t('at')} ${it.time}` : '';

@@ -34,6 +34,7 @@ function Screens() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="new-invoice" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
         <Stack.Screen name="new-task" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
+        <Stack.Screen name="new-note" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
         <Stack.Screen name="job/[id]" />
         <Stack.Screen name="client/[id]" />
         <Stack.Screen name="edit-client" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
