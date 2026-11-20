@@ -37,7 +37,7 @@ function SheetBody({ item, onClose, onPaid }: Props & { item: NonNullable<Props[
   const [error, setError] = useState('');
 
   const save = async () => {
-    if (!method) return setError(t('How did the customer pay?'));
+    if (!method) return setError(t('How did the client pay?'));
     setBusy(true);
     setError('');
     try {

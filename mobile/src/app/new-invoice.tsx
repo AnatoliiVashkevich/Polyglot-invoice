@@ -40,7 +40,7 @@ import { radius, useColors } from '@/theme';
 type WorkRow = { key: string; text: string; qty: string; price: string; kind: LineKind };
 type DueDays = number; // 0 = Now; the chips offer 0 / 7 / 15 / 30
 
-const STEPS = ['Customer', 'Check info', 'Work + prices', 'Date', 'Review'] as const;
+const STEPS = ['Client', 'Check info', 'Work + prices', 'Date', 'Review'] as const;
 const DATE = 3;
 const REVIEW = 4;
 const DUE_CHOICES: { days: DueDays; label: string }[] = [
@@ -280,7 +280,7 @@ export default function NewInvoiceScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       if (updated.status !== 'requested' && updated.status !== 'sent') return router.back();
       // already sent once: offer to send the corrected one (product-decisions.md §6)
-      Alert.alert(isEstimate ? t('Send the updated estimate to the customer?') : t('Send the updated invoice to the customer?'), '', [
+      Alert.alert(isEstimate ? t('Send the updated estimate to the client?') : t('Send the updated invoice to the client?'), '', [
         { text: t('Not now'), style: 'cancel', onPress: () => router.back() },
         {
           text: t('Send'),
@@ -307,7 +307,7 @@ export default function NewInvoiceScreen() {
 
   // ----- screens -----
   const title = [
-    t('Choose the customer'),
+    t('Choose the client'),
     client?.id ? t('Check {name}’s info', { name: firstName(client.name) }) : t('New client'),
     isEstimate ? t('What work will you do?') : t('What did you do?'),
     isEstimate ? t('Date of the estimate') : t('Date'),

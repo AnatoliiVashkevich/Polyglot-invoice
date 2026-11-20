@@ -61,7 +61,7 @@ function plan(items: ServerItem[], now = new Date()): Planned[] {
       if (at) {
         out.push({
           at,
-          title: t('{name}’s invoice {amount} is 3 days late', { name: it.client_name || t('A customer'), amount: usd(Number(it.total)) }),
+          title: t('{name}’s invoice {amount} is 3 days late', { name: it.client_name || t('A client'), amount: usd(Number(it.total)) }),
           body: t('Tap to send a polite reminder.'),
           url: `/job/${it.id}?remind=1`,
         });

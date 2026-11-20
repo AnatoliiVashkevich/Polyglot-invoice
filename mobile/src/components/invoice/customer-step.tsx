@@ -53,7 +53,7 @@ export function CustomerStep({
     if (c !== 'unreadable') return pickContact(c);
     Alert.alert(
       t('Allow all contacts'),
-      t('You shared only some contacts with the app, so iPhone hides the others. To see all your customers: Settings → Contacts → Full Access. Or type the name and add the details by hand.'),
+      t('You shared only some contacts with the app, so iPhone hides the others. To see all your clients: Settings → Contacts → Full Access. Or type the name and add the details by hand.'),
       [
         { text: t('Not now'), style: 'cancel' },
         { text: t('Open Settings'), onPress: () => Linking.openSettings() },
@@ -115,11 +115,11 @@ export function CustomerStep({
       />
 
       {access === 'undetermined' &&
-        row('ask', t('Search your phone contacts'), t('To find your customers faster.'), askContacts, '📇')}
+        row('ask', t('Search your phone contacts'), t('To find your clients faster.'), askContacts, '📇')}
       {access === 'limited' &&
         row('more', t('Pick from all contacts'), t('Some contacts are hidden. Tap to choose from all of them.'), fromAllContacts, '📇')}
       {access === 'denied' &&
-        row('settings', t('Allow contacts in Settings'), t('To find your customers faster.'), () => Linking.openSettings(), '📇')}
+        row('settings', t('Allow contacts in Settings'), t('To find your clients faster.'), () => Linking.openSettings(), '📇')}
 
       {!q && recent.length > 0 && (
         <>
@@ -128,7 +128,7 @@ export function CustomerStep({
         </>
       )}
       {!q && clients.length === 0 && (
-        <Text style={[styles.hint, { color: colors.muted }]}>{t('Type the customer’s name.')}</Text>
+        <Text style={[styles.hint, { color: colors.muted }]}>{t('Type the client’s name.')}</Text>
       )}
 
       {!!q && yourClients.length > 0 && (

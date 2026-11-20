@@ -144,9 +144,9 @@ export default function NewTaskScreen() {
     }
   };
 
-  const title = [t('Choose the customer'), t('What needs to be done?'), t('When?'), t('Remind you?')][step];
+  const title = [t('Choose the client'), t('What needs to be done?'), t('When?'), t('Remind you?')][step];
   const subtitle = [
-    t('Or tap Skip at the bottom if it is not for a customer.'),
+    t('Or tap Skip at the bottom if it is not for a client.'),
     client ? client.name : '',
     '',
     t('A notification on your phone before the job. The iPhone asks once to allow notifications.'),

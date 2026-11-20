@@ -21,7 +21,7 @@ export function DayRow({ item, onPress, actions = [] }: { item: Item; onPress: (
   const colors = useColors();
   const color = kindColors[itemColorKey(item)];
   const done = item.status === 'paid' || item.status === 'done';
-  const who = item.clientName || t('No customer');
+  const who = item.clientName || t('No client');
   const first =
     item.kind === 'task'
       ? [item.time && formatTime(item.time), who, t(KIND_LABEL.task)].filter(Boolean).join(' · ')

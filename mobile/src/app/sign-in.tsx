@@ -53,7 +53,7 @@ export default function SignInScreen() {
         <Text style={[styles.brand, { color: colors.accent }]}>Polyglot Invoice</Text>
         <Text style={[styles.title, { color: colors.text }]}>{mode === 'in' ? t('Sign in') : t('Create your account')}</Text>
         <Text style={[styles.lead, { color: colors.muted }]}>
-          {mode === 'in' ? t('Welcome back.') : t('Invoices in your customer’s language, in a minute.')}
+          {mode === 'in' ? t('Welcome back.') : t('Invoices in your client’s language, in a minute.')}
         </Text>
 
         <View style={styles.form}>

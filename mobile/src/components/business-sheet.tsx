@@ -61,7 +61,7 @@ function Body({ settings, onClose, onSaved }: { settings: Settings; onClose: () 
           <Field label={t('Email')} value={form.email} onChangeText={set('email')} keyboardType="email-address" autoCapitalize="none" />
           <Field label={t('Address')} value={form.address} onChangeText={set('address')} />
           <Field
-            label={t('How customers pay you')}
+            label={t('How clients pay you')}
             value={form.payment_info}
             onChangeText={set('payment_info')}
             placeholder={t('e.g. Zelle (561) 555-0100, Venmo @fixit')}

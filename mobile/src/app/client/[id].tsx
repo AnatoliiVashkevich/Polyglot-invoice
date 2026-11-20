@@ -3,13 +3,14 @@
 // The ＋ here pre-fills this client (the questionnaire starts at "check the customer's info"). ✏️ Edit → edit-client.
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DayRow } from '@/components/calendar/day-list';
+import { ContactBar } from '@/components/contact-bar';
 import { CreateButton } from '@/components/create-button';
 import { LANGUAGES, t } from '@/i18n';
-import { callUrl, clientMoney, mapsUrl, newestFirst, textUrl } from '@/lib/client-tools';
+import { clientMoney, newestFirst } from '@/lib/client-tools';
 import { getClient, type Client } from '@/lib/clients';
 import { formatDay } from '@/lib/dates';
 import { fetchClientItems } from '@/lib/items';
@@ -39,22 +40,6 @@ export default function ClientScreen() {
 
   const sums = useMemo(() => clientMoney(items), [items]);
 
-  const openLink = async (url: string, missing: string) => {
-    if (!url) return Alert.alert(missing, t('Tap ✏️ Edit to add it.'));
-    try {
-      await Linking.openURL(url);
-    } catch {
-      Alert.alert(t('This iPhone cannot open it.'));
-    }
-  };
-
-  const actions = client
-    ? [
-        { icon: '📞', label: t('Call'), onPress: () => openLink(callUrl(client.phone), t('No phone number yet.')) },
-        { icon: '💬', label: t('Text'), onPress: () => openLink(textUrl(client.phone), t('No phone number yet.')) },
-        { icon: '📍', label: t('Navigate'), onPress: () => openLink(mapsUrl(client.address), t('No address yet.')) },
-      ]
-    : [];
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.bg, paddingTop: insets.top + 4 }]}>
@@ -83,18 +68,7 @@ export default function ClientScreen() {
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, gap: 12, paddingBottom: insets.bottom + 140 }}>
           <Text style={[styles.name, { color: colors.text }]}>{client.name}</Text>
 
-          <View style={styles.actions}>
-            {actions.map((a) => (
-              <Pressable
-                key={a.label}
-                onPress={a.onPress}
-                accessibilityRole="button"
-                style={({ pressed }) => [styles.action, { borderColor: colors.line, backgroundColor: pressed ? colors.line : colors.card }]}>
-                <Text style={styles.actionIcon}>{a.icon}</Text>
-                <Text style={[styles.actionText, { color: colors.accent }]}>{a.label}</Text>
-              </Pressable>
-            ))}
-          </View>
+          <ContactBar phone={client.phone} address={client.address} />
 
           <View style={styles.sums}>
             <View style={[styles.sum, { backgroundColor: colors.card }]}>
@@ -159,10 +133,6 @@ const styles = StyleSheet.create({
   editBtn: { height: 36, paddingHorizontal: 14, borderRadius: radius.pill, borderWidth: 1, justifyContent: 'center' },
   editText: { fontSize: 15, fontWeight: '600' },
   name: { fontSize: 28, fontWeight: '800', letterSpacing: -0.4 },
-  actions: { flexDirection: 'row', gap: 8 },
-  action: { flex: 1, height: 64, borderRadius: radius.md, borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 2 },
-  actionIcon: { fontSize: 20 },
-  actionText: { fontSize: 14, fontWeight: '700' },
   sums: { flexDirection: 'row', gap: 8 },
   sum: { flex: 1, borderRadius: radius.md, padding: 12, gap: 2 },
   sumLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.6 },

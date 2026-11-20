@@ -9,6 +9,7 @@ import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Share, StyleS
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 
+import { ContactBar } from '@/components/contact-bar';
 import { BigButton } from '@/components/form';
 import { MarkPaidSheet } from '@/components/mark-paid-sheet';
 import { t } from '@/i18n';
@@ -147,7 +148,7 @@ export default function JobScreen() {
         : t('Scheduled')
       : item.kind === 'estimate'
         ? item.status === 'sent'
-          ? t('Sent · waiting for the customer’s answer')
+          ? t('Sent · waiting for the client’s answer')
           : t('Created · not sent yet')
         : item.status === 'paid'
           ? t('✓ Paid {date} · {method}', { date: formatDay(item.paid_date ?? item.date, 'en-US'), method: t(item.payment_method || 'Other') })
@@ -192,11 +193,23 @@ export default function JobScreen() {
 
       {item && (
         <View style={styles.summary}>
-          <Text style={[styles.client, { color: colors.text }]} numberOfLines={1}>
-            {item.client_name || t('No customer')}
-            {item.kind !== 'task' || Number(item.total) > 0 ? ` · ${money(Number(item.total))}` : ''}
-          </Text>
+          {/* the client's name opens their page */}
+          <Pressable
+            disabled={!client}
+            onPress={() => client && router.push({ pathname: '/client/[id]', params: { id: client.id } })}
+            accessibilityRole={client ? 'link' : undefined}>
+            <Text style={[styles.client, { color: colors.text }]} numberOfLines={1}>
+              {item.client_name || t('No client')}
+              {item.kind !== 'task' || Number(item.total) > 0 ? ` · ${money(Number(item.total))}` : ''}
+              {client ? <Text style={{ color: colors.faint }}> ›</Text> : null}
+            </Text>
+          </Pressable>
           <Text style={[styles.status, { color: statusColor }]}>{statusText}</Text>
+          {!!client && (
+            <View style={{ marginTop: 8 }}>
+              <ContactBar phone={client.phone} address={item.address || client.address} compact />
+            </View>
+          )}
         </View>
       )}
 
@@ -241,14 +254,17 @@ export default function JobScreen() {
             </Text>
           </View>
           {!!(client || item.address) && (
-            <View style={[styles.card, { backgroundColor: colors.card }]}>
-              <Text style={[styles.cardLabel, { color: colors.muted }]}>{t('CUSTOMER')}</Text>
+            <Pressable
+              disabled={!client}
+              onPress={() => client && router.push({ pathname: '/client/[id]', params: { id: client.id } })}
+              style={({ pressed }) => [styles.card, { backgroundColor: pressed ? colors.line : colors.card }]}>
+              <Text style={[styles.cardLabel, { color: colors.muted }]}>{t('CLIENT')}{client ? '  ›' : ''}</Text>
               {!!client && <Text style={[styles.body, { color: colors.text, fontWeight: '700' }]}>{client.name}</Text>}
               {!!client?.phone && <Text style={[styles.small, { color: colors.muted }]}>📞 {client.phone}</Text>}
               {!!(item.address || client?.address) && (
                 <Text style={[styles.small, { color: colors.muted }]}>📍 {item.address || client?.address}</Text>
               )}
-            </View>
+            </Pressable>
           )}
         </ScrollView>
       ) : (
