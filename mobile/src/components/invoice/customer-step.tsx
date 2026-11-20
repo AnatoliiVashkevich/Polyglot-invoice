@@ -1,5 +1,5 @@
-// Step 1 · Customer: ONE search box. Before typing: recent clients. While typing:
-//   Your clients → From your phone contacts → ＋ New client "typed name"
+// Step 1 · Client: ONE search box. Before typing: recent clients. While typing:
+//   Your clients → ＋ New client "typed name" → From your phone contacts (owner: "New client" must be easy to see)
 // The contacts permission is asked only when the user taps "Search your phone contacts" (with the reason).
 // Once allowed, matching contacts simply appear while typing. Refused → a row that opens Settings;
 // only some contacts shared (iOS 18) → a row to choose more.
@@ -137,6 +137,7 @@ export function CustomerStep({
           {yourClients.map((c) => row(c.id, c.name, c.phone || c.email, () => pickClient(c)))}
         </>
       )}
+      {!!q && row('new', t('New client “{name}”', { name: q }), '', pickNew, '＋')}
       {!!q && fromPhone.length > 0 && (
         <>
           {heading(t('From your phone contacts'))}
@@ -146,7 +147,6 @@ export function CustomerStep({
       {!!q && (access === 'all' || access === 'limited') && fromPhone.length === 0 && (
         <Text style={[styles.hint, { color: colors.muted }]}>{t('No phone contacts match “{q}”.', { q })}</Text>
       )}
-      {!!q && row('new', t('New client “{name}”', { name: q }), '', pickNew, '＋')}
     </View>
   );
 }

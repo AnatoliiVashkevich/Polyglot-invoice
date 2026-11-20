@@ -85,7 +85,8 @@ AI is an optional shortcut inside the same flow: whatever the user says fills in
 filled-in steps are skipped. Free users get the same screens with plain fields.
 
 1. **Customer:** **one search box**. Recent clients show before typing. As the user types, results come in this order:
-   **Your clients** → **From your phone contacts** → **＋ New client "typed name"** (prefilled).
+   **Your clients** → **＋ New client "typed name"** (prefilled) → **From your phone contacts** (changed 2026-11-19:
+   "New client" must be easy to see). **＋ New client** on the Clients tab starts with this same search.
    Choosing a phone contact saves it as a client; if it is already a client (same phone or email), that client is used,
    no duplicate. The contacts permission is asked the first time ("to find your customers faster"); if refused, only
    clients and "New client" show. "Skip" only for tasks.
@@ -284,6 +285,7 @@ the website address (polyglotinvoice.com) and a USPTO trademark search.
   (Rental, Office…). Making a job for a saved client asks **"Where is the job?"** (chips; **＋ Another address** adds
   one to the client right there). The PDF shows JOB SITE when it isn't the billing address. On the client's page every
   address has its own **Navigate**.
+- The list of a client's jobs is called **History**.
 - History: finished jobs stay in the calendar (faded, ✓) and on the client's page; that is enough (owner, 2026-11-19).
 
 ## 13. Database (decided 2026-11-19)

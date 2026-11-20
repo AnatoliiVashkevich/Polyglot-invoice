@@ -1,6 +1,6 @@
 // THE CLIENT'S PAGE (product-decisions.md §9b):
 //   name · Call / Text / Navigate · Paid total / Owes now · contacts, language, notes · their jobs, newest first.
-// Jobs: filter buttons (All · Invoices · Estimates · Tasks · Owes), grouped by month, 20 at a time ("Show more"),
+// HISTORY (their jobs): filter buttons (All · Invoices · Estimates · Tasks · Owes), grouped by month, 20 at a time ("Show more"),
 // so a client with hundreds of jobs stays easy to read and fast.
 // The ＋ here pre-fills this client (the questionnaire starts at "check the client's info"). ✏️ Edit → edit-client.
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -131,7 +131,7 @@ export default function ClientScreen() {
             )}
           </View>
 
-          <Text style={[styles.section, { color: colors.muted }]}>{t('JOBS')}</Text>
+          <Text style={[styles.section, { color: colors.muted }]}>{t('HISTORY')}</Text>
           {items.length === 0 ? (
             <View style={[styles.card, { backgroundColor: colors.card }]}>
               <Text style={[styles.info, { color: colors.muted }]}>{t('No jobs yet. Tap ＋ to make an invoice, an estimate or a task for {name}.', { name: client.name })}</Text>
