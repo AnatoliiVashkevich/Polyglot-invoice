@@ -6,6 +6,7 @@ The app asks for consent before anything is sent here (App Store rule, §2). Ope
 """
 import logging
 import os
+import re
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Literal
 
@@ -48,8 +49,9 @@ Rules:
 - Amounts are US dollars; "1.5k" = 1500.
 - Write each line as short, professional invoice wording in the SAME language (a noun phrase, fixed spelling), without
   changing the meaning: "съездил в магазин" -> "Поездка в магазин за материалами", "fixed the door thing" -> "Door repair".
-- When you are NOT sure what a part means (a typo you can't fix with confidence, an unknown word, a rude or odd word,
-  two possible meanings): keep the user's words in text, and fill `question` — a short, polite question to the user
+- When you are NOT sure what a part means, or it doesn't look like paid work or material for this trade (a typo you
+  can't fix with confidence, an unknown word, a rude word, two possible meanings, "slept"): keep the user's words in
+  text, and fill `question` — a short, polite question to the user
   in THEIR language ("Что вы имели в виду под «пердел»?") — and `suggestion` — your best guess as the tidy line text in
   their language ("Переделка работы"), or "" if you have no good guess. Otherwise question and suggestion are "".
   Never guess silently: a wrong word on an invoice embarrasses the user in front of their client.
@@ -61,8 +63,23 @@ Rules:
 - Professional, short invoice wording in {language}, using the terms someone in this trade there would use.
 - Keep numbers, sizes, units, brand and product names as they are. Never add or drop information.
 - A line already in {language}: return it as it is (only fix obvious spelling).
-- Never replace a word you don't understand with an unrelated one; translate the closest clear meaning.
+- FAITHFUL ABOVE ALL: each translation says what THAT line says. Never invent work, never borrow another line's
+  meaning, never "clean up" a line into something else. If a line is rude, nonsense, a typo you can't fix, or not a
+  paid service/material (e.g. "slept"), translate its literal meaning in neutral words and set odd = true.
+- For each line return: source (the line exactly as given), text (the translation), odd (true/false).
 """
+
+CHECK_RULES = """You check the lines the professional typed for their invoice, before the client sees them.
+For each line return: source (the line exactly as given), question, suggestion.
+- question = "" when the line is clear, paid work or material for this trade (any language, short is fine).
+- Otherwise (a typo you can't fix with confidence, an unknown word, a rude word, two possible meanings, or something
+  that is not paid work/material, like "slept"): question = a short, polite question to the user in THE LINE'S
+  language ("Что вы имели в виду под «пердел»?"), suggestion = your best guess as tidy line text in that language,
+  or "" if you have no good guess.
+- Don't ask about style, prices or quantities. Ask only when the client could misunderstand or be offended.
+"""
+
+TR_VERSION = 2   # translations made before this are made again (v1 could "clean up" odd lines into invented work)
 
 LANGUAGE_NAMES = {"en": "English (US)", "es": "Spanish (as spoken in the USA)", "pt": "Portuguese (Brazilian)",
                   "ru": "Russian", "uk": "Ukrainian"}
@@ -83,6 +100,26 @@ class AiLines(BaseModel):
 
 class AiTexts(BaseModel):
     texts: list[str]
+
+
+class AiTranslation(BaseModel):
+    source: str   # the line as given (echoed, so each translation stays tied to its own line)
+    text: str
+    odd: bool     # rude / nonsense / not a paid service: translated literally, never "cleaned up"
+
+
+class AiTranslations(BaseModel):
+    items: list[AiTranslation]
+
+
+class AiCheck(BaseModel):
+    source: str
+    question: str
+    suggestion: str
+
+
+class AiChecks(BaseModel):
+    items: list[AiCheck]
 
 
 class AiUnavailable(Exception):
@@ -136,15 +173,51 @@ def translate_texts(texts: list[str], lang: str, trade: str = "") -> list[str]:
         return []
     numbered = "\n".join(f"{i + 1}. {t}" for i, t in enumerate(texts))
     try:
-        res = _client().responses.parse(model=TEXT_MODEL, input=numbered[:12000], text_format=AiTexts,
+        res = _client().responses.parse(model=TEXT_MODEL, input=numbered[:12000], text_format=AiTranslations,
                                         instructions=context(trade) + "\n\n" + TRANSLATE_RULES.format(language=LANGUAGE_NAMES.get(lang, lang)))
-        out = res.output_parsed.texts if res.output_parsed else []
+        items = res.output_parsed.items if res.output_parsed else []
     except AiUnavailable:
         raise
     except Exception as e:
         log.warning("AI translation failed: %s", e)
         raise AiUnavailable("The AI is not available right now.") from e
-    out = [o.strip().removeprefix(f"{i + 1}.").strip() for i, o in enumerate(out)]
-    if len(out) != len(texts) or not all(out):
+    if len(items) != len(texts):
         raise AiUnavailable("The AI translation came back incomplete.")
-    return [o[:500] for o in out]
+    out = []
+    for given, item in zip(texts, items):
+        text = _unnumber(item.text)
+        if _norm(_unnumber(item.source)) != _norm(given) or not text:
+            raise AiUnavailable("The AI translation got the lines mixed up.")   # never put one line's words on another
+        out.append(text[:500])
+    return out
+
+
+def _unnumber(text: str) -> str:
+    """ "3. Installed door" -> "Installed door" (the lines are sent numbered)."""
+    return re.sub(r"^\s*\d+[.)]\s*", "", text or "").strip()
+
+
+def _norm(text: str) -> str:
+    """For comparing a line with the AI's echo of it: letters and digits only, lower case."""
+    return "".join(ch for ch in text.lower() if ch.isalnum())
+
+
+def check_lines(texts: list[str], trade: str = "") -> list[dict]:
+    """Lines typed by hand -> [{index, question, suggestion}] for the ones the client could misunderstand (§6n)."""
+    texts = [t for t in texts][:200]
+    if not any(t.strip() for t in texts):
+        return []
+    numbered = "\n".join(f"{i + 1}. {t}" for i, t in enumerate(texts))
+    try:
+        res = _client().responses.parse(model=TEXT_MODEL, input=numbered[:12000], text_format=AiChecks,
+                                        instructions=context(trade) + "\n\n" + CHECK_RULES)
+        items = res.output_parsed.items if res.output_parsed else []
+    except AiUnavailable:
+        raise
+    except Exception as e:
+        log.warning("AI check failed: %s", e)
+        raise AiUnavailable("The AI is not available right now.") from e
+    if len(items) != len(texts) or any(_norm(_unnumber(it.source)) != _norm(t) for it, t in zip(items, texts)):
+        raise AiUnavailable("The AI check got the lines mixed up.")
+    return [{"index": i, "question": it.question.strip()[:300], "suggestion": it.suggestion.strip()[:500]}
+            for i, it in enumerate(items) if it.question.strip()]

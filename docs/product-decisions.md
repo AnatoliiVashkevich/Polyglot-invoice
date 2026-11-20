@@ -353,6 +353,12 @@ the website address (polyglotinvoice.com) and a USPTO trademark search.
   (a typo, an unknown or odd word, two meanings), it keeps the user's words and asks **under that line, in the user's
   language**: "❓ Что вы имели в виду под «пердел»?" → **Use «Переделка»** (its best guess) · **Keep as I wrote** ·
   or correct the text. It never guesses silently; translations never swap in an unrelated word.
+- **Lines typed by hand are checked too, when the user taps Next** on the work step: unclear, rude, or not paid work
+  ("спал") → the same question under the line; Next waits until it is answered (Use / Keep as I wrote / correct).
+  Without the AI or consent, Next simply goes on.
+- **Translations are faithful above all** (owner's invoice: "Срал" came out as "Installed door"): each translation
+  echoes its own line and is refused if the lines got mixed up; odd lines are translated literally, never "cleaned up"
+  into invented work. Old translations are made again with these rules.
 - **The client's extra copy in their language is hidden for now** (owner: "hide it and all about it, remind me at the
   last point"): no language question on the client screens. The data stays; switch: `mobile/src/lib/features.ts`.
 

@@ -23,8 +23,8 @@ export async function askAiConsent(): Promise<boolean> {
   if (await hasConsent()) return true;
   const yes = await new Promise<boolean>((resolve) =>
     Alert.alert(
-      t('Use AI to make the lines?'),
-      t('Your text is sent to OpenAI, an AI company, only to turn it into invoice lines. OpenAI does not use it to train its AI. You can always type the lines yourself.'),
+      t('Use AI for your invoice lines?'),
+      t('Your text is sent to OpenAI, an AI company, only to tidy, check and translate your invoice lines. OpenAI does not use it to train its AI. You can always type the lines yourself.'),
       [
         { text: t('Not now'), style: 'cancel', onPress: () => resolve(false) },
         { text: t('Yes, use AI'), onPress: () => resolve(true) },
@@ -33,6 +33,19 @@ export async function askAiConsent(): Promise<boolean> {
   );
   if (yes) await SecureStore.setItemAsync(CONSENT_KEY, 'yes').catch(() => {});
   return yes;
+}
+
+export type AiQuestion = { index: number; question: string; suggestion: string };
+
+/** Lines typed by hand, checked on Next (§6n): questions for the unclear / rude / not-work ones. [] when the AI is
+ *  not available or not allowed, so the user can always go on. */
+export async function checkLines(texts: string[]): Promise<AiQuestion[]> {
+  if (!texts.length || !(await askAiConsent())) return [];
+  try {
+    return (await api<{ questions: AiQuestion[] }>('/api/ai/check', { method: 'POST', body: { texts } })).questions;
+  } catch {
+    return [];
+  }
 }
 
 /** A line from the AI; when it isn't sure, a question to the user (in their language) and its best guess. */

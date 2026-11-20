@@ -210,7 +210,7 @@ class Line(BaseModel):
     price: float = Field(0, ge=-1000000, le=1000000)
     kind: Literal["work", "material"] = "work"
     # translations made for the PDFs: {"en": {"src": the text it was made from, "text": the translation}}
-    tr: dict[str, dict[str, str]] | None = None
+    tr: dict[str, dict[str, str | int]] | None = None
 
 
 class Repeat(BaseModel):
@@ -395,6 +395,20 @@ class LinesText(BaseModel):
     text: str = Field(..., min_length=1, max_length=4000)
 
 
+class LinesToCheck(BaseModel):
+    texts: list[str] = Field(..., max_length=200)
+
+
+@app.post("/api/ai/check")
+def ai_check(body: LinesToCheck, uid: str = Depends(auth.current_user)):
+    """Lines typed by hand, checked when the user taps Next: questions for the unclear / rude / not-work ones (§6n).
+    503 when the AI isn't available (the app then just goes on)."""
+    try:
+        return {"questions": ai.check_lines([t[:500] for t in body.texts], _business(uid).get("trade") or "")}
+    except ai.AiUnavailable as e:
+        raise HTTPException(503, str(e))
+
+
 @app.post("/api/ai/lines")
 def ai_lines(body: LinesText, uid: str = Depends(auth.current_user)):
     """Step 7, part 1: "Describe the work and prices" -> clean lines the user then checks and edits.
@@ -489,18 +503,20 @@ def _translated(item: dict, lang: str, uid: str, trade: str = "") -> dict:
     """The item with its line texts in `lang` for the PDF (§9). Each line is translated once, in the trade sense
     (ai.CONTEXT), and remembered; a changed line is translated again. No AI -> the PDF keeps the user's words."""
     lines = [dict(line) for line in item.get("lines") or []]
-    todo = [i for i, line in enumerate(lines)
-            if line.get("text") and ((line.get("tr") or {}).get(lang) or {}).get("src") != line["text"]]
+    def fresh(line: dict) -> bool:   # a remembered translation of this very text, made by the current rules
+        entry = (line.get("tr") or {}).get(lang) or {}
+        return entry.get("src") == line.get("text") and entry.get("v") == ai.TR_VERSION
+
+    todo = [i for i, line in enumerate(lines) if line.get("text") and not fresh(line)]
     if todo:
         try:
             done = ai.translate_texts([lines[i]["text"] for i in todo], lang, trade)
             for i, text in zip(todo, done):
-                lines[i]["tr"] = {**(lines[i].get("tr") or {}), lang: {"src": lines[i]["text"], "text": text}}
+                lines[i]["tr"] = {**(lines[i].get("tr") or {}), lang: {"src": lines[i]["text"], "text": text, "v": ai.TR_VERSION}}
             db.update_row("items", item["id"], {"lines": lines}, uid)   # remembered (updated_at stays: not a user edit)
         except ai.AiUnavailable:
             log.warning("PDF without translation (%s)", lang)
-    shown = [{**line, "text": ((line.get("tr") or {}).get(lang) or {}).get("text") or line.get("text", "")}
-             if ((line.get("tr") or {}).get(lang) or {}).get("src") == line.get("text") else line for line in lines]
+    shown = [{**line, "text": line["tr"][lang]["text"]} if fresh(line) else line for line in lines]
     return {**item, "lines": shown}
 
 

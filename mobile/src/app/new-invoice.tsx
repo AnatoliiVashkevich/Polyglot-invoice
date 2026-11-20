@@ -9,7 +9,7 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -30,7 +30,7 @@ import { AddressPicker } from '@/components/address-picker';
 import { CustomerStep } from '@/components/invoice/customer-step';
 import { MaterialsExpenseSheet, type PaidExpense } from '@/components/materials-expense-sheet';
 import { LANGUAGES, t, type Lang } from '@/i18n';
-import { describeToLines } from '@/lib/ai';
+import { checkLines, describeToLines } from '@/lib/ai';
 import { CLIENT_COPY } from '@/lib/features';
 import { api, ApiError } from '@/lib/api';
 import { addClientAddress, fetchClients, fetchNextNumber, fetchSettings, saveClient, type Client, type ClientDraft, type Settings } from '@/lib/clients';
@@ -92,6 +92,8 @@ export default function NewInvoiceScreen() {
   const [describe, setDescribe] = useState('');
   const [describing, setDescribing] = useState(false);
   const [describeNote, setDescribeNote] = useState('');
+  // texts the AI already looked at (made by it, checked, or "Keep as I wrote"), so Next doesn't ask twice
+  const checked = useRef(new Set<string>());
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -195,6 +197,7 @@ export default function NewInvoiceScreen() {
         suggestion: l.suggestion || undefined,
       }));
       // the new lines replace empty rows; rows the user already filled stay
+      made.filter((m) => !m.question).forEach((m) => checked.current.add(m.text.trim()));
       setWork((rows) => [...rows.filter((r) => r.text.trim() || r.price.trim()), ...made]);
       setDescribe('');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -258,6 +261,19 @@ export default function NewInvoiceScreen() {
       // a typo guard (an extra zero), the same limits as the server
       if (workLines.some((l) => overLimit(l) === 'price')) return setError(t('One line can be at most $1,000,000. Please check for an extra zero.'));
       if (workLines.some((l) => overLimit(l) === 'qty')) return setError(t('Qty can be at most 100,000. Please check for an extra zero.'));
+      if (work.some((w) => w.question)) return setError(t('Please answer the question under the line first.'));
+      // the AI looks at lines typed by hand before the client can see them (§6n)
+      const fresh = work.filter((w) => w.text.trim() && !checked.current.has(w.text.trim()));
+      if (fresh.length) {
+        setBusy(true);
+        const questions = await checkLines(fresh.map((w) => w.text.trim())).finally(() => setBusy(false));
+        fresh.forEach((w) => checked.current.add(w.text.trim()));
+        if (questions.length) {
+          const asked = new Map(questions.map((q) => [fresh[q.index]?.key, q]));
+          setWork((rows) => rows.map((r) => (asked.has(r.key) ? { ...r, question: asked.get(r.key)!.question, suggestion: asked.get(r.key)!.suggestion || undefined } : r)));
+          return setError(t('The AI has a question about {n} line(s). Please answer it, then tap Next.', { n: questions.length }));
+        }
+      }
     }
     if (editing && (step === 2 || step === DATE)) return go(REVIEW); // editing: back to Review
     go(step + 1);
@@ -471,10 +487,20 @@ export default function NewInvoiceScreen() {
                         <Chip
                           label={t('Use «{s}»', { s: w.suggestion })}
                           active={false}
-                          onPress={() => setW(w.key, { text: w.suggestion ?? w.text, question: undefined, suggestion: undefined })}
+                          onPress={() => {
+                            checked.current.add((w.suggestion ?? '').trim());
+                            setW(w.key, { text: w.suggestion ?? w.text, question: undefined, suggestion: undefined });
+                          }}
                         />
                       )}
-                      <Chip label={t('Keep as I wrote')} active={false} onPress={() => setW(w.key, { question: undefined, suggestion: undefined })} />
+                      <Chip
+                        label={t('Keep as I wrote')}
+                        active={false}
+                        onPress={() => {
+                          checked.current.add(w.text.trim());
+                          setW(w.key, { question: undefined, suggestion: undefined });
+                        }}
+                      />
                     </View>
                     <Text style={[styles.small, { color: colors.muted }]}>{t('Or correct the text above.')}</Text>
                   </View>

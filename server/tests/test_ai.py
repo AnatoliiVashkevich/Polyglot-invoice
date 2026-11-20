@@ -77,7 +77,8 @@ class FakeTranslator:
 
         def one(t):
             return self.WORDS.get(t, t) if into.startswith("English") else f"ES:{t}" if into.startswith("Spanish") else t
-        return NS(output_parsed=ai.AiTexts(texts=[f"{i + 1}. {one(t)}" for i, t in enumerate(texts)]))
+        return NS(output_parsed=ai.AiTranslations(items=[ai.AiTranslation(source=f"{i + 1}. {t}", text=f"{i + 1}. {one(t)}", odd=False)
+                                                         for i, t in enumerate(texts)]))
 
 
 def ru_invoice(api):
@@ -98,7 +99,7 @@ def test_lines_written_in_russian_come_out_in_english_and_are_remembered(api, mo
     assert len(tr.asked) == 2                                    # remembered: not translated again
     stored = api.get(f"/api/items/{inv['id']}").json()["lines"]
     assert stored[0]["text"] == "Перестилка пола на кухне"       # the user's own words stay in the app
-    assert stored[0]["tr"]["en"] == {"src": "Перестилка пола на кухне", "text": "Kitchen floor reinstallation"}
+    assert stored[0]["tr"]["en"] == {"src": "Перестилка пола на кухне", "text": "Kitchen floor reinstallation", "v": ai.TR_VERSION}
 
 
 def test_only_a_changed_line_is_translated_again(api, monkeypatch):
@@ -153,4 +154,47 @@ def test_when_the_ai_is_not_sure_it_asks_the_user_in_their_language(api, monkeyp
     assert lines[0] == {"text": "Пердел", "qty": 1, "price": 100, "kind": "work",
                         "question": "Что вы имели в виду под «пердел»?", "suggestion": "Переделка работы"}
     assert "question" not in lines[1]
-    assert "Never guess silently" in ai.LINES_RULES and "Never replace a word you don't understand" in ai.TRANSLATE_RULES
+    assert "Never guess silently" in ai.LINES_RULES and "Never invent work" in ai.TRANSLATE_RULES
+
+
+
+def test_a_translation_that_mixes_up_the_lines_is_refused(monkeypatch):
+    """Owner's invoice: "Срал" came out as "Installed door" (another line's meaning). Each answer must echo its line."""
+    mixed = ai.AiTranslations(items=[ai.AiTranslation(source="1. Установил дверь", text="1. Installed door", odd=False),
+                                     ai.AiTranslation(source="2. Установил дверь", text="2. Installed door", odd=False)])
+    use_fake(monkeypatch, answer=mixed)
+    with pytest.raises(ai.AiUnavailable, match="mixed up"):
+        ai.translate_texts(["Срал", "Установил дверь"], "en")
+    short = ai.AiTranslations(items=[ai.AiTranslation(source="1. Срал", text="1. Defecated", odd=True)])
+    use_fake(monkeypatch, answer=short)
+    with pytest.raises(ai.AiUnavailable, match="incomplete"):
+        ai.translate_texts(["Срал", "Установил дверь"], "en")
+    assert "FAITHFUL ABOVE ALL" in ai.TRANSLATE_RULES and "never borrow another line" in ai.TRANSLATE_RULES
+
+
+def test_old_translations_are_made_again_with_the_new_rules(api, monkeypatch, fake):
+    from tests.test_invoice_flow import pdf_text
+    tr = FakeTranslator()
+    monkeypatch.setattr(ai, "_client", lambda: NS(responses=tr))
+    inv = ru_invoice(api)
+    row = fake.tables["items"][inv["id"]]
+    row["lines"][0]["tr"] = {"en": {"src": "Перестилка пола на кухне", "text": "Installed door"}}   # a v1 translation
+    assert "Kitchen floor reinstallation" in pdf_text(api, inv["id"]) and "Installed door" not in pdf_text(api, inv["id"])
+
+
+def test_lines_typed_by_hand_are_checked_on_next(api, monkeypatch):
+    checks = ai.AiChecks(items=[
+        ai.AiCheck(source="1. Срал", question="Что вы имели в виду?", suggestion=""),
+        ai.AiCheck(source="2. Спал", question="Это работа для клиента?", suggestion="Ожидание на объекте"),
+        ai.AiCheck(source="3. Установил дверь", question="", suggestion="")])
+    fake_ai = use_fake(monkeypatch, answer=checks)
+    r = api.post("/api/ai/check", json={"texts": ["Срал", "Спал", "Установил дверь"]})
+    assert r.status_code == 200 and r.json()["questions"] == [
+        {"index": 0, "question": "Что вы имели в виду?", "suggestion": ""},
+        {"index": 1, "question": "Это работа для клиента?", "suggestion": "Ожидание на объекте"}]
+    assert "not paid work/material" in fake_ai.calls[0]["instructions"]
+    assert api.post("/api/ai/check", json={"texts": ["", " "]}).json() == {"questions": []}
+    use_fake(monkeypatch, error=RuntimeError("down"))
+    assert api.post("/api/ai/check", json={"texts": ["x"]}).status_code == 503
+    use_fake(monkeypatch, answer=ai.AiChecks(items=[ai.AiCheck(source="1. other", question="?", suggestion="")]))
+    assert api.post("/api/ai/check", json={"texts": ["x"]}).status_code == 503       # mixed up: refused
