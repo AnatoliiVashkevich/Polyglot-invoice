@@ -335,6 +335,15 @@ the website address (polyglotinvoice.com) and a USPTO trademark search.
 - Still to do in step 7: the client's extra copy in their language (how to send two files is to be decided), voice,
   fixing a translation by hand, translating the terms.
 
+## 6m. The AI knows the user's work (2026-11-19)
+
+- **Settings → "What kind of work do you do?"**: pick one or more (Handyman / repair, Construction / remodeling,
+  Cleaning, Landscaping / lawn care, Painting, Plumbing, Electrical, HVAC, Flooring / tile, Moving, Auto repair,
+  Hair / beauty, Pet care, Tutoring / lessons, IT / computer help, Photography) and **Other** (free text). For anyone:
+  a hairdresser, a tutor… (owner). Also asked in the first-launch setup (step 9).
+- The AI reads every word in that work's sense ("укладка": a blowout for a hair salon, sod for lawn care). Before a
+  choice: a neutral small service business, no construction guesses. The repair glossary ("пол" = floor) stays as help.
+
 ## 13. Database (decided 2026-11-19)
 
 - The new app **reuses the crm-solo Supabase project and its keys**. Its old tables hold only test data and are

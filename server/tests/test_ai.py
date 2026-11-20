@@ -35,6 +35,7 @@ def test_words_become_lines_the_user_can_check(api, monkeypatch):
         ("Door installation", 1, 300, "work"), ("Double swing doors", 2, 350, "work"), ("Hinges", 3, 12, "material")]
     call = fake_ai.calls[0]
     assert call["model"] == ai.TEXT_MODEL and "door installation 300" in call["input"] and "price = total / qty" in call["instructions"]
+    assert "small service business (any trade)" in call["instructions"]       # no trade chosen yet: neutral
 
 
 def test_the_ai_answer_is_kept_inside_the_invoice_limits():
@@ -129,5 +130,14 @@ def test_without_the_ai_the_pdf_still_works_with_the_users_words(api):
 
 
 def test_the_translation_rules_carry_the_trade_context():
-    assert "never gender" in ai.TRANSLATE_RULES and "{language}" in ai.TRANSLATE_RULES
-    assert "Поездка в магазин за материалами" in ai.LINES_RULES
+    assert "{language}" in ai.TRANSLATE_RULES and "Поездка в магазин за материалами" in ai.LINES_RULES
+    assert "never gender" in ai.context()
+    assert "whose work is: Hair salon, coloring" in ai.context("Hair salon, coloring")
+
+
+def test_the_users_trade_from_settings_reaches_the_ai(api, monkeypatch):
+    fake_ai = use_fake(monkeypatch, answer=ai.AiLines(lines=[ai.AiLine(text="Стрижка", qty=1, price=40, kind="work")]))
+    assert api.patch("/api/settings", json={"trade": "Hair salon"}).json()["trade"] == "Hair salon"
+    api.post("/api/ai/lines", json={"text": "стрижка 40"})
+    assert "whose work is: Hair salon" in fake_ai.calls[0]["instructions"]
+    assert api.patch("/api/settings", json={"trade": "x" * 301}).status_code == 422

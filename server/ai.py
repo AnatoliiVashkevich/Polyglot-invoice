@@ -15,15 +15,25 @@ log = logging.getLogger("polyglot")
 
 TEXT_MODEL = os.getenv("AI_TEXT_MODEL", "gpt-5.4-mini")   # fast and cheap; checked available 2026-11-19
 
-CONTEXT = """You work for a solo home-repair / construction / handyman contractor in the USA (doors, floors, tile,
-drywall, paint, decks, plumbing and electrical fixes, furniture assembly, cleaning). Always read words in that trade
-sense: "пол" is a floor (never gender), "плитка" is tile, "гипсокартон" drywall, "шпаклёвка" spackle / joint compound,
-"плинтус" baseboard, "откосы" window/door returns, "затирка" grout, "наличник" door casing, "piso" floor, "azulejo" tile,
-"rodapé"/"zócalo" baseboard."""
+REPAIR_WORDS = """For repair and construction work: "пол" is a floor (never gender), "плитка" tile, "гипсокартон" drywall,
+"шпаклёвка" spackle / joint compound, "плинтус" baseboard, "откосы" window/door returns, "затирка" grout, "наличник"
+door casing, "piso" floor, "azulejo" tile, "rodapé"/"zócalo" baseboard."""
 
-LINES_RULES = CONTEXT + """
 
-You turn the contractor's description of work into invoice lines.
+def context(trade: str = "") -> str:
+    """Who the AI works for (§6m): the user's own trade from Settings ("What kind of work do you do?"), so every word
+    is read in that work's sense (a hairdresser's "окрашивание" is hair coloring). No trade yet: a neutral small
+    service business. The repair glossary helps whenever repair words appear."""
+    trade = (trade or "").strip()[:300]
+    who = (f"a solo self-employed professional in the USA whose work is: {trade}" if trade
+           else "a solo self-employed professional in the USA running a small service business (any trade)")
+    return f"""You work for {who}.
+Read every word in the sense of this person's work and the services and materials they sell, never in an unrelated
+everyday sense. If a word fits several trades, choose the one closest to this work.
+{REPAIR_WORDS}"""
+
+
+LINES_RULES = """You turn the professional's description of their work into invoice lines.
 Rules:
 - One line per distinct piece of work or material. Keep the user's language and wording; just tidy it
   (capital first letter, no price inside the text).
@@ -33,19 +43,17 @@ Rules:
 - If a count and one amount are given without "each"/"per"/"по"/"cada", the amount is the line total: price = total / qty.
   "2 doors 700" -> qty 2, price 350. "2 doors 200 each" -> qty 2, price 200. "3 hours at 60" -> qty 3, price 60.
 - A fixed price for a whole scope of work -> one line, qty 1.
-- kind = "material" for things bought (tile, hinges, paint, lumber), otherwise "work".
+- kind = "material" for things bought for the client (tile, hinges, paint, hair dye, parts), otherwise "work".
 - Never invent prices. A line without an amount gets price 0.
 - Amounts are US dollars; "1.5k" = 1500.
 - Write each line as short, professional invoice wording in the SAME language (a noun phrase, fixed spelling), without
   changing the meaning: "съездил в магазин" -> "Поездка в магазин за материалами", "fixed the door thing" -> "Door repair".
 """
 
-TRANSLATE_RULES = CONTEXT + """
-
-You translate the lines of the contractor's invoice into {language} for their client.
+TRANSLATE_RULES = """You translate the lines of the professional's invoice into {language} for their client.
 Rules:
 - Return exactly one translation per input line, in the same order.
-- Professional, short invoice wording in {language}, using the trade terms a contractor there would use.
+- Professional, short invoice wording in {language}, using the terms someone in this trade there would use.
 - Keep numbers, sizes, units, brand and product names as they are. Never add or drop information.
 - A line already in {language}: return it as it is (only fix obvious spelling).
 """
@@ -80,10 +88,11 @@ def _client():
     return OpenAI(timeout=30)
 
 
-def text_to_lines(text: str) -> list[dict]:
+def text_to_lines(text: str, trade: str = "") -> list[dict]:
     """The user's words -> [{text, qty, price, kind}], cleaned and within the invoice limits."""
     try:
-        res = _client().responses.parse(model=TEXT_MODEL, instructions=LINES_RULES, input=text[:4000], text_format=AiLines)
+        res = _client().responses.parse(model=TEXT_MODEL, instructions=context(trade) + "\n\n" + LINES_RULES,
+                                        input=text[:4000], text_format=AiLines)
         parsed = res.output_parsed
     except AiUnavailable:
         raise
@@ -108,14 +117,14 @@ def clean_lines(lines: list[dict]) -> list[dict]:
     return out[:200]
 
 
-def translate_texts(texts: list[str], lang: str) -> list[str]:
-    """Invoice line texts -> the same lines in `lang`, in the trade sense (see CONTEXT). Same count, same order."""
+def translate_texts(texts: list[str], lang: str, trade: str = "") -> list[str]:
+    """Invoice line texts -> the same lines in `lang`, in the sense of the user's trade. Same count, same order."""
     if not texts:
         return []
     numbered = "\n".join(f"{i + 1}. {t}" for i, t in enumerate(texts))
     try:
         res = _client().responses.parse(model=TEXT_MODEL, input=numbered[:12000], text_format=AiTexts,
-                                        instructions=TRANSLATE_RULES.format(language=LANGUAGE_NAMES.get(lang, lang)))
+                                        instructions=context(trade) + "\n\n" + TRANSLATE_RULES.format(language=LANGUAGE_NAMES.get(lang, lang)))
         out = res.output_parsed.texts if res.output_parsed else []
     except AiUnavailable:
         raise

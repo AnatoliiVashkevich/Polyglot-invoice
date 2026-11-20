@@ -28,6 +28,7 @@ export type Settings = {
   payment_info: string;
   doc_language: Lang;
   app_language?: Lang; // the user's own language (writing, "Check in my language")
+  trade?: string; // "What kind of work do you do?" — the AI reads words in this sense
   tax_rate: number | string;
   tax_applies_to: TaxAppliesTo;
   due_days: 0 | 7 | 15 | 30;

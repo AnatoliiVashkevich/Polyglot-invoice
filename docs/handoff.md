@@ -12,7 +12,9 @@ Last updated: 2026-11-19. Update this file at the end of every session.
   `AI_TEXT_MODEL` default gpt-5.4-mini), `POST /api/ai/lines`; app `src/lib/ai.ts` (consent + call),
   `src/lib/quick-lines.ts` (offline reader), "✨ Describe it in one go" in `new-invoice.tsx`. Part 2 built (§6l):
   `ai.translate_texts` + `_translated()` in main.py (cached per line in `lines[].tr`), language switch on the job card,
-  languages in Settings. Tests never call the real AI (conftest `no_real_ai`). Next parts: 🎤 voice
+  languages in Settings. Tests never call the real AI (conftest `no_real_ai`). Trade context §6m: `ai.context(trade)`,
+  `businesses.trade` — **owner must run:** `alter table businesses add column if not exists trade text not null default '';`
+  Next parts: 🎤 voice
   (transcribe → fill the questionnaire), translated PDF in the client's language, "Check in my language", fixing
   translations. Windows: print Cyrillic from Python with `PYTHONIOENCODING=utf-8`.
 - **Step 5 is done and tested on the iPhone (2026-11-19).** Feedback fixed (product-decisions.md §6f): button and

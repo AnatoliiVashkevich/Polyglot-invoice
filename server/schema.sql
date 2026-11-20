@@ -56,6 +56,7 @@ create table if not exists clients (
   addresses          jsonb not null default '[]'::jsonb,   -- other job addresses: [{"label": "Rental", "address": "…"}]
   created_at         timestamptz not null default now()
 );
+alter table businesses add column if not exists trade text not null default '';   -- added 2026-11-19: the AI's context
 alter table clients add column if not exists addresses jsonb not null default '[]'::jsonb;   -- added 2026-11-19
 create index if not exists clients_owner_idx on clients (owner_id);
 

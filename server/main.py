@@ -73,6 +73,7 @@ class SettingsPatch(BaseModel):
     due_days: Literal[0, 7, 15, 30] | None = None
     invoice_terms: str | None = Field(None, max_length=2000)
     tax_setaside_pct: float | None = Field(None, ge=0, le=60)
+    trade: str | None = Field(None, max_length=300)   # "What kind of work do you do?" -> the AI's context (§6m)
 
 
 def _business(uid: str) -> dict:
@@ -399,7 +400,7 @@ def ai_lines(body: LinesText, uid: str = Depends(auth.current_user)):
     """Step 7, part 1: "Describe the work and prices" -> clean lines the user then checks and edits.
     503 when the AI isn't available: the app keeps the text and the user types the lines."""
     try:
-        return {"lines": ai.text_to_lines(body.text)}
+        return {"lines": ai.text_to_lines(body.text, _business(uid).get("trade") or "")}
     except ai.AiUnavailable as e:
         raise HTTPException(503, str(e))
 
@@ -484,7 +485,7 @@ def _carry_translations(old_lines: list[dict], new_lines: list[dict]) -> list[di
     return out
 
 
-def _translated(item: dict, lang: str, uid: str) -> dict:
+def _translated(item: dict, lang: str, uid: str, trade: str = "") -> dict:
     """The item with its line texts in `lang` for the PDF (§9). Each line is translated once, in the trade sense
     (ai.CONTEXT), and remembered; a changed line is translated again. No AI -> the PDF keeps the user's words."""
     lines = [dict(line) for line in item.get("lines") or []]
@@ -492,7 +493,7 @@ def _translated(item: dict, lang: str, uid: str) -> dict:
             if line.get("text") and ((line.get("tr") or {}).get(lang) or {}).get("src") != line["text"]]
     if todo:
         try:
-            done = ai.translate_texts([lines[i]["text"] for i in todo], lang)
+            done = ai.translate_texts([lines[i]["text"] for i in todo], lang, trade)
             for i, text in zip(todo, done):
                 lines[i]["tr"] = {**(lines[i].get("tr") or {}), lang: {"src": lines[i]["text"], "text": text}}
             db.update_row("items", item["id"], {"lines": lines}, uid)   # remembered (updated_at stays: not a user edit)
@@ -513,7 +514,7 @@ def item_pdf(item_id: str, lang: Lang | None = None, uid: str = Depends(auth.cur
     business = _business(uid)
     client = db.get_row("clients", item["client_id"], uid) if item.get("client_id") else None
     lang = lang or business.get("doc_language") or "en"
-    pdf = invoice_pdf.build_pdf(_translated(item, lang, uid), client or {}, business, lang)
+    pdf = invoice_pdf.build_pdf(_translated(item, lang, uid, business.get("trade") or ""), client or {}, business, lang)
     name = invoice_pdf.file_name(item, lang)
     return Response(pdf, media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="{name}"'})
 
