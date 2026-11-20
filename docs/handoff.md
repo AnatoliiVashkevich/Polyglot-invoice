@@ -3,6 +3,8 @@
 Last updated: 2026-11-19. Update this file at the end of every session.
 
 ## Status
+- **GitHub:** https://github.com/AnatoliiVashkevich/Polyglot-invoice (private, branch main). Push after each commit
+  when the owner asks (`git push`). Secrets stay out: `server/.env` is git-ignored.
 - **Latest (2026-11-19, end of the long session):** after step 6 the owner asked for, and got: clients improved
   (§6h), repeating tasks and notes (§6g), Edit top right / Delete bottom, linked stages + the two stories pay-before /
   pay-after (§6i), status teaching lines and "Is the job finished?" (§6j), client page Upcoming / History.
